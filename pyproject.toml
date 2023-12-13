@@ -9,7 +9,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
 authors = [
-    { name = "Basraah" },
+    { name = "Basraah", email = "basraaheve@gmail.com" },
     { name = "Erik Kalkoken", email = "kaloken87@gmail.com" },
 ]
 classifiers = [
