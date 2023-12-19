@@ -224,58 +224,56 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
         if self.model is AbstractStandingsRequest:
             raise TypeError("Can not be called from abstract objects")
 
-        organization = app_config.standings_source_entity()
-        organization_name = organization.name if organization else ""
         query: models.QuerySet[AbstractStandingsRequest] = self.all()
         for standing_request in query:
-            contact = EveEntity.objects.get_or_create_esi(
-                id=standing_request.contact_id
-            )[0]
-            is_currently_effective = standing_request.is_effective
-            is_satisfied_standing = standing_request.evaluate_effective_standing()
-            if is_satisfied_standing and not is_currently_effective:
-                if SR_NOTIFICATIONS_ENABLED:
-                    self._notify_user_about_standing_change(
-                        organization_name=organization_name,
-                        standing_request=standing_request,
-                        contact=contact,
-                    )
+            self._process_single_request(standing_request)
+
+    def _process_single_request(self, standing_request):
+        contact = EveEntity.objects.get_or_create_esi(id=standing_request.contact_id)[0]
+        is_currently_effective = standing_request.is_effective
+        is_satisfied_standing = standing_request.evaluate_effective_standing()
+        if is_satisfied_standing and not is_currently_effective:
+            if SR_NOTIFICATIONS_ENABLED:
+                self._notify_user_about_standing_change(
+                    standing_request=standing_request, contact=contact
+                )
 
                 # if this was a revocation the standing requests need to be remove
                 # to indicate that this character no longer has standing
-                if standing_request.is_standing_revocation:
-                    self._remove_standing_request_after_revocation(standing_request)
+            if standing_request.is_standing_revocation:
+                self._remove_standing_request_after_revocation(standing_request)
 
-            elif is_satisfied_standing:
-                # Just catching all other contact types (corps/alliances)
-                # that are set effective
-                pass
+        elif is_satisfied_standing:
+            # Just catching all other contact types (corps/alliances)
+            # that are set effective
+            pass
 
-            elif not is_satisfied_standing and is_currently_effective:
-                # Effective standing no longer effective
-                self._removing_effective_standing(standing_request)
+        elif not is_satisfied_standing and is_currently_effective:
+            # Effective standing no longer effective
+            self._removing_effective_standing(standing_request)
 
-            else:
-                # Check the standing hasn't been set actioned
-                # and not updated in game
-                actioned_timeout = standing_request.check_actioned_timeout()
-                if actioned_timeout is not None and actioned_timeout:
-                    logger.info(
-                        "Standing request for contact ID %d has timed out "
-                        "and will be reset",
-                        standing_request.contact_id,
+        else:
+            # Check the standing hasn't been set actioned
+            # and not updated in game
+            actioned_timeout = standing_request.check_actioned_timeout()
+            if actioned_timeout is not None and actioned_timeout:
+                logger.info(
+                    "Standing request for contact ID %d has timed out "
+                    "and will be reset",
+                    standing_request.contact_id,
+                )
+                if SR_NOTIFICATIONS_ENABLED:
+                    self._notify_user_about_timed_out_request(
+                        standing_request, contact, actioned_timeout
                     )
-                    if SR_NOTIFICATIONS_ENABLED:
-                        self._notify_user_about_timed_out_request(
-                            standing_request, contact, actioned_timeout
-                        )
 
+    @staticmethod
     def _notify_user_about_standing_change(
-        self,
-        organization_name: str,
-        standing_request: AbstractStandingsRequest,
-        contact: EveEntity,
+        standing_request: AbstractStandingsRequest, contact: EveEntity
     ):
+        organization = app_config.standings_source_entity()
+        organization_name = organization.name if organization else ""
+
         if standing_request.is_standing_request:
             notify(
                 user=standing_request.user,
@@ -312,7 +310,8 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
                     },
                 )
 
-    def _removing_effective_standing(self, standing_request: AbstractStandingsRequest):
+    @staticmethod
+    def _removing_effective_standing(standing_request: AbstractStandingsRequest):
         from .models import StandingRevocation
 
         logger.info(
@@ -322,7 +321,8 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
         )
         standing_request.delete(reason=StandingRevocation.Reason.REVOKED_IN_GAME)
 
-    def _remove_standing_request_after_revocation(self, standing_request):
+    @staticmethod
+    def _remove_standing_request_after_revocation(standing_request):
         from .models import StandingRequest, StandingRevocation
 
         StandingRequest.objects.filter(contact_id=standing_request.contact_id).delete()
@@ -330,8 +330,8 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
             contact_id=standing_request.contact_id
         ).delete()
 
+    @staticmethod
     def _notify_user_about_timed_out_request(
-        self,
         standing_request: AbstractStandingsRequest,
         contact: EveEntity,
         actioned_timeout,
