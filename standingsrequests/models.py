@@ -446,9 +446,9 @@ class AbstractStandingsRequest(models.Model):
         self.action_date = None
         self.save()
 
-    def validate(self):
-        """Validate a standing request or standing revocation
-        and update or delete them if necessary.
+    def process(self):
+        """Process a standing request or standing revocation
+        and update or delete them as necessary.
         """
         if type(self) is AbstractStandingsRequest:
             raise TypeError("Can not be called for abstract requests")

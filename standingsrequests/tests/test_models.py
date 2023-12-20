@@ -217,7 +217,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         )
 
         # when
-        my_request.validate()
+        my_request.process()
 
         # then
         my_request.refresh_from_db()
@@ -242,7 +242,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         )
 
         # when
-        my_request.validate()
+        my_request.process()
 
         # then
         my_request.refresh_from_db()
@@ -265,7 +265,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         )
 
         # when
-        my_request.validate()
+        my_request.process()
 
         # then
         my_request.refresh_from_db()
@@ -286,7 +286,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         )
 
         # when
-        my_request.validate()
+        my_request.process()
 
         # then
         self.assertEqual(mock_notify.call_count, 2)
@@ -303,7 +303,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         )
 
         # when
-        my_request.validate()
+        my_request.process()
 
         # then
         self.assertEqual(mock_notify.call_count, 0)
@@ -320,7 +320,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         self.contact_set.contacts.get(eve_entity_id=1002).delete()
 
         # when
-        my_request.validate()
+        my_request.process()
 
         # then
         my_request.refresh_from_db()
@@ -339,7 +339,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
 
         # when/then
         with self.assertRaises(TypeError):
-            my_request.validate()
+            my_request.process()
 
 
 class TestStandingRequest(TestCase):
