@@ -22,6 +22,7 @@ from standingsrequests.models import (
     StandingRevocation,
 )
 
+from .testdata.factories import StandingRequestFactory
 from .testdata.my_test_data import (
     TEST_STANDINGS_ALLIANCE_ID,
     TEST_STANDINGS_API_CHARID,
@@ -47,7 +48,7 @@ HELPERS_EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
     {"Member": [TEST_REQUIRED_SCOPE], "Blue": [], "": []},
 )
 @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
-@patch(MANAGERS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
+@patch(MODELS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
 @patch(CORE_PATH + ".app_config.STR_ALLIANCE_IDS", [TEST_STANDINGS_ALLIANCE_ID])
 class TestMainUseCases(WebTest):
     csrf_checks = False
@@ -135,7 +136,7 @@ class TestMainUseCases(WebTest):
         else:
             raise NotImplementedError()
 
-        return StandingRequest.objects.create(
+        return StandingRequestFactory(
             user=self.user_requestor,
             contact_id=contact_id,
             contact_type_id=contact_type_id,

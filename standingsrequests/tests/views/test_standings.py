@@ -9,8 +9,8 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.testing import add_character_to_user
 
-from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.models import CharacterAffiliation, StandingRequest
+from standingsrequests.models import CharacterAffiliation
+from standingsrequests.tests.testdata.factories import StandingRequestFactory
 from standingsrequests.tests.testdata.my_test_data import (
     create_contacts_set,
     create_eve_objects,
@@ -187,10 +187,9 @@ class TestCorporationStandingsData(PartialDictEqualMixin, TestCase):
             cls.alt_character_1,
             scopes=[TEST_SCOPE],
         )
-        StandingRequest.objects.create(
+        StandingRequestFactory(
             user=cls.user_2,
             contact_id=2102,
-            contact_type_id=ContactTypeId.CORPORATION,
             action_by=cls.user_1,
             action_date=now() - dt.timedelta(days=1, hours=1),
             is_effective=True,

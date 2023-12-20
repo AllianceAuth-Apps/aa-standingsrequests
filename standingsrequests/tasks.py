@@ -96,14 +96,30 @@ def generate_standing_requests_for_blue_alts(contact_set_pk: int):
 
 @shared_task
 def process_standing_requests():
-    """Process standings requests."""
-    StandingRequest.objects.process_requests()
+    """Process all current standings requests.
+
+    Note: This task might generate new standing revocations.
+    """
+    query = StandingRequest.objects.select_related("action_by", "user").all()
+    obj_count = query.count()
+    for obj in query:
+        obj.process()
+
+    logger.info("Completed processing %d standing requests", obj_count)
 
 
 @shared_task
 def process_standing_revocations():
-    """Process standing revocations."""
-    StandingRevocation.objects.process_requests()
+    """Process all current standing revocations.
+
+    Note: Should run after process_standing_requests to deal with new revocations
+    """
+    query = StandingRevocation.objects.select_related("action_by", "user").all()
+    obj_count = query.count()
+    for obj in query:
+        obj.process()
+
+    logger.info("Completed processing %d standing revocations", obj_count)
 
 
 @shared_task(name="standings_requests.validate_requests")

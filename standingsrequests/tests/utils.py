@@ -23,6 +23,8 @@ from standingsrequests.tests.testdata.my_test_data import (
     create_eve_objects,
 )
 
+from .testdata.factories import StandingRequestFactory
+
 
 class PartialDictEqualMixin:
     def assertPartialDictEqual(self, d1: dict, d2: dict):
@@ -125,7 +127,7 @@ class TestViewPagesBase(PartialDictEqualMixin, TestCase):
         else:
             raise NotImplementedError()
 
-        return StandingRequest.objects.create(
+        return StandingRequestFactory(
             user=self.user_requestor,
             contact_id=contact_id,
             contact_type_id=contact_type_id,
