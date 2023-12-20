@@ -13,6 +13,7 @@ from eveuniverse.models import EveEntity
 
 from allianceauth.authentication.models import CharacterOwnership, State
 from allianceauth.eveonline.models import EveCharacter
+from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import default_if_none
 from app_utils.logging import LoggerAddTag
@@ -24,7 +25,11 @@ from standingsrequests.helpers.models import (
 )
 
 from . import __title__
-from .app_settings import SR_REQUIRED_SCOPES, SR_STANDING_TIMEOUT_HOURS
+from .app_settings import (
+    SR_NOTIFICATIONS_ENABLED,
+    SR_REQUIRED_SCOPES,
+    SR_STANDING_TIMEOUT_HOURS,
+)
 from .constants import OperationMode
 from .core import app_config
 from .core.contact_types import ContactTypeId
@@ -440,6 +445,120 @@ class AbstractStandingsRequest(models.Model):
         self.action_by = None
         self.action_date = None
         self.save()
+
+    def process(self):
+        """Process a request."""
+        if type(self) is AbstractStandingsRequest:
+            raise TypeError("Can not be called for abstract requests")
+
+        contact = EveEntity.objects.get_or_create_esi(id=self.contact_id)[0]
+        has_been_effective = self.is_effective
+        is_satisfied_standing = self.evaluate_effective_standing()
+        if is_satisfied_standing and not has_been_effective:
+            if SR_NOTIFICATIONS_ENABLED:
+                self._notify_user_about_standing_change(contact=contact)
+
+                # if this was a revocation the standing requests need to be remove
+                # to indicate that this character no longer has standing
+            if self.is_standing_revocation:
+                self._remove_standing_request_after_revocation()
+
+        elif is_satisfied_standing:
+            # Just catching all other contact types (corps/alliances)
+            # that are set effective
+            pass
+
+        elif not is_satisfied_standing and has_been_effective:
+            # Effective standing no longer effective
+            self._removing_effective_standing()
+
+        else:
+            # Check the standing hasn't been set actioned
+            # and not updated in game
+            actioned_timeout = self.check_actioned_timeout()
+            if actioned_timeout is not None and actioned_timeout:
+                logger.info(
+                    "Standing request for contact ID %d has timed out "
+                    "and will be reset",
+                    self.contact_id,
+                )
+                if SR_NOTIFICATIONS_ENABLED:
+                    self._notify_user_about_timed_out_request(contact, actioned_timeout)
+
+    def _notify_user_about_standing_change(self, contact: EveEntity):
+        organization = app_config.standings_source_entity()
+        organization_name = organization.name if organization else ""
+
+        if self.is_standing_request:
+            notify(
+                user=self.user,
+                title=_("%s: Standing with %s now in effect")
+                % (__title__, contact.name),
+                message=_(
+                    "'%(organization_name)s' now has blue standing with "
+                    "your alt %(contact_category)s '%(contact_name)s'. "
+                    "Please also update the standing of "
+                    "your %(contact_category)s accordingly."
+                )
+                % {
+                    "organization_name": organization_name,
+                    "contact_category": contact.category,
+                    "contact_name": contact.name,
+                },
+            )
+        elif self.is_standing_revocation:
+            if self.user:
+                notify(
+                    user=self.user,
+                    title=f"{__title__}: Standing with {contact.name} revoked",
+                    message=_(
+                        "'%(organization_name)s' no longer has "
+                        "standing with your "
+                        "%(contact_category)s '%(contact_name)s'. "
+                        "Please also update the standing of "
+                        "your %(contact_category)s accordingly."
+                    )
+                    % {
+                        "organization_name": organization_name,
+                        "contact_category": contact.category,
+                        "contact_name": contact.name,
+                    },
+                )
+
+    def _removing_effective_standing(self):
+        self.delete(reason=StandingRevocation.Reason.REVOKED_IN_GAME)
+        logger.info(
+            "Standing for %d is marked as effective but is not "
+            "satisfied in game. Deleted.",
+            self.contact_id,
+        )
+
+    def _remove_standing_request_after_revocation(self):
+        StandingRequest.objects.filter(contact_id=self.contact_id).delete()
+        StandingRevocation.objects.filter(contact_id=self.contact_id).delete()
+
+    def _notify_user_about_timed_out_request(
+        self, contact: EveEntity, actioned_timeout
+    ):
+        title = _("Standing Request for %s reset") % contact.name
+        message = (
+            _(
+                "The standing request for %(contact_category)s "
+                "'%(contact_name)s' from %(user_name)s "
+                "has been reset as it did not appear in "
+                "game before the timeout period expired."
+            )
+            % {
+                "contact_category": contact.category,
+                "contact_name": contact.name,
+                "user_name": self.user.username,
+            },
+        )
+
+        # Notify standing manager
+        notify(user=actioned_timeout, title=title, message=message)
+        # Notify the user
+        notify(user=self.user, title=title, message=message)
 
 
 class StandingRequest(AbstractStandingsRequest):

@@ -97,13 +97,15 @@ def generate_standing_requests_for_blue_alts(contact_set_pk: int):
 @shared_task
 def process_standing_requests():
     """Process standings requests."""
-    StandingRequest.objects.process_requests()
+    for obj in StandingRequest.objects.all():
+        obj.process()
 
 
 @shared_task
 def process_standing_revocations():
     """Process standing revocations."""
-    StandingRevocation.objects.process_requests()
+    for obj in StandingRevocation.objects.all():
+        obj.process()
 
 
 @shared_task(name="standings_requests.validate_requests")

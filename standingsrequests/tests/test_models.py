@@ -27,9 +27,10 @@ from standingsrequests.models import (
     StandingRevocation,
 )
 
-from .testdata.entity_type_ids import CHARACTER_TYPE_ID
+from .testdata.entity_type_ids import CHARACTER_TYPE_ID, CORPORATION_TYPE_ID
 from .testdata.my_test_data import (
     TEST_STANDINGS_ALLIANCE_ID,
+    TEST_STANDINGS_API_CHARID,
     create_contacts_set,
     create_entity,
     create_standings_char,
@@ -187,6 +188,158 @@ class TestAbstractStandingsRequest(TestCase):
         # then
         self.assertFalse(my_request.is_standing_request)
         self.assertTrue(my_request.is_standing_revocation)
+
+
+@patch(MODELS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
+@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
+@patch(MODELS_PATH + ".SR_STANDING_TIMEOUT_HOURS", 24)
+@patch(MODELS_PATH + ".notify")
+class TestAbstractStandingsRequestProcess(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user_manager = AuthUtils.create_user("Mike Manager")
+        cls.user_requestor = AuthUtils.create_user("Roger Requestor")
+        cls.contact_set = create_contacts_set()
+        create_standings_char()
+
+    def test_when_pilot_standing_satisfied_in_game_mark_effective_and_inform_user(
+        self, mock_notify
+    ):
+        # given
+        my_request = StandingRequest.objects.create(
+            user=self.user_requestor,
+            contact_id=1002,
+            contact_type_id=CHARACTER_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now(),
+            is_effective=False,
+        )
+
+        # when
+        my_request.process()
+
+        # then
+        my_request.refresh_from_db()
+        self.assertTrue(my_request.is_effective)
+        self.assertIsNotNone(my_request.effective_date)
+        self.assertEqual(my_request.action_by, self.user_manager)
+        self.assertIsNotNone(my_request.action_date)
+        self.assertEqual(mock_notify.call_count, 1)
+        _, kwargs = mock_notify.call_args
+        self.assertEqual(kwargs["user"], self.user_requestor)
+
+    def test_dont_inform_user_when_sr_was_effective_before(self, mock_notify):
+        # given
+        my_request = StandingRequest.objects.create(
+            user=self.user_requestor,
+            contact_id=1002,
+            contact_type_id=CHARACTER_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now(),
+            is_effective=True,
+            effective_date=now(),
+        )
+
+        # when
+        my_request.process()
+
+        # then
+        my_request.refresh_from_db()
+        self.assertTrue(my_request.is_effective)
+        self.assertIsNotNone(my_request.effective_date)
+        self.assertEqual(my_request.action_by, self.user_manager)
+        self.assertIsNotNone(my_request.action_date)
+        self.assertEqual(mock_notify.call_count, 0)
+
+    def test_when_corporation_standing_satisfied_in_game_mark_effective(
+        self, mock_notify
+    ):
+        # given
+        my_request = StandingRequest.objects.create(
+            user=self.user_requestor,
+            contact_id=2003,
+            contact_type_id=CORPORATION_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now(),
+        )
+
+        # when
+        my_request.process()
+
+        # then
+        my_request.refresh_from_db()
+        self.assertTrue(my_request.is_effective)
+        self.assertIsNotNone(my_request.effective_date)
+        self.assertEqual(my_request.action_by, self.user_manager)
+        self.assertIsNotNone(my_request.action_date)
+        self.assertTrue(mock_notify.called)
+
+    def test_notify_about_requests_that_are_reset_and_timed_out(self, mock_notify):
+        # given
+        my_request = StandingRequest.objects.create(
+            user=self.user_requestor,
+            contact_id=1008,
+            contact_type_id=CHARACTER_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now() - timedelta(hours=25),
+        )
+
+        # when
+        my_request.process()
+
+        # then
+        self.assertEqual(mock_notify.call_count, 2)
+
+    def test_dont_notify_about_requests_that_are_reset_and_not_timed_out(
+        self, mock_notify
+    ):
+        my_request = StandingRequest.objects.create(
+            user=self.user_requestor,
+            contact_id=1008,
+            contact_type_id=CHARACTER_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now() - timedelta(hours=1),
+        )
+
+        # when
+        my_request.process()
+
+        # then
+        self.assertEqual(mock_notify.call_count, 0)
+
+    def test_no_action_when_actioned_standing_but_not_in_game_yet(self, mock_notify):
+        # given
+        my_request = StandingRequest.objects.create(
+            user=self.user_requestor,
+            contact_id=1002,
+            contact_type_id=CHARACTER_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now(),
+        )
+        self.contact_set.contacts.get(eve_entity_id=1002).delete()
+
+        # when
+        my_request.process()
+
+        # then
+        my_request.refresh_from_db()
+        self.assertFalse(my_request.is_effective)
+        self.assertIsNone(my_request.effective_date)
+        self.assertEqual(mock_notify.call_count, 0)
+
+    def test_raise_exception_when_called_from_abstract_object(self, mock_notify):
+        # given
+        my_request = AbstractStandingsRequest.objects.create(
+            contact_id=2003,
+            contact_type_id=CORPORATION_TYPE_ID,
+            action_by=self.user_manager,
+            action_date=now(),
+        )
+
+        # when/then
+        with self.assertRaises(TypeError):
+            my_request.process()
 
 
 class TestStandingRequest(TestCase):

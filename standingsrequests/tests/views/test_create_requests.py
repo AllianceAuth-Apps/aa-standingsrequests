@@ -127,7 +127,7 @@ class TestViewAuthPage(NoSocketsTestCase):
     lambda *args, **kwargs: 1,
 )
 @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
-@patch(MANAGERS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
+@patch(MODELS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
 @patch(HELPERS_EVECORPORATION_PATH + ".esi")
 class TestViewsBasics(TestViewPagesBase):
     def _setup_mocks(self, mock_esi):
