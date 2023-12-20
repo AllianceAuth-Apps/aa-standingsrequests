@@ -88,26 +88,25 @@ class ContactSet(models.Model):
 
         return count of generated standings requests
         """
-        logger.info("Started generating standings request for blue alts.")
         owned_characters_qs = EveCharacter.objects.filter(
             character_ownership__isnull=False
-        )
+        ).select_related("character_ownership__user")
         created_counter = 0
-        for alt in owned_characters_qs:
-            user = alt.character_ownership.user
+        for alt_character in owned_characters_qs:
+            user = alt_character.character_ownership.user
             if (
-                not app_config.is_character_a_member(alt)
+                not app_config.is_character_a_member(alt_character)
                 and not StandingRequest.objects.filter(
-                    user=user, contact_id=alt.character_id
+                    user=user, contact_id=alt_character.character_id
                 ).exists()
                 and not StandingRevocation.objects.filter(
-                    contact_id=alt.character_id
+                    contact_id=alt_character.character_id
                 ).exists()
-                and self.contact_has_satisfied_standing(alt.character_id)
+                and self.contact_has_satisfied_standing(alt_character.character_id)
             ):
-                sr = StandingRequest.objects.get_or_create_2(
+                sr: StandingRequest = StandingRequest.objects.get_or_create_2(
                     user=user,
-                    contact_id=alt.character_id,
+                    contact_id=alt_character.character_id,
                     contact_type=StandingRequest.ContactType.CHARACTER,
                 )
                 sr.mark_actioned(user=None, reason=sr.Reason.STANDING_IN_GAME)
@@ -118,15 +117,12 @@ class ContactSet(models.Model):
                 logger.info(
                     "Generated standings request for blue alt %s "
                     "belonging to user %s.",
-                    alt,
+                    alt_character,
                     user,
                 )
                 created_counter += 1
 
-        logger.info(
-            "Completed generating %d standings request for blue alts.",
-            created_counter,
-        )
+        logger.info("Generated %d standings request for blue alts.", created_counter)
         return created_counter
 
     @staticmethod
@@ -451,6 +447,7 @@ class AbstractStandingsRequest(models.Model):
         """Process a standing request or standing revocation
         and update or delete them as necessary.
         """
+        # pylint: disable = unidiomatic-typecheck
         if type(self) is AbstractStandingsRequest:
             raise TypeError("Can not be called for abstract requests")
 

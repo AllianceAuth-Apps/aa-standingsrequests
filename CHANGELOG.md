@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.4.1] - TBD
+
+### Changed
+
+- Further performance improvements for processing standings requests & revocations and generating standings requests for blue alts
+- Refactoring
+
+### Fixed
+
+- Outline levels in CHANGELOG
+
 ## [1.4.0] - 2023-12-12
 
-## Changed
+### Changed
 
 - Added support for AA4
 - Broke down long running task "standings_update" into smaller tasks
@@ -23,7 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.3.0] - 2023-05-08
 
-## Changed
+### Changed
 
 - Migrated build process to PEP 621
 - Drop support for AA 2
@@ -32,13 +43,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.2.2] - 2022-07-19
 
-## Changed
+### Changed
 
 - filterDropDown compatibility fix for AA3 (!7)
 
 ## [1.2.1] - 2022-06-18
 
-## Changed
+### Changed
 
 - Add wheel to PyPI deployment
 - Switch to local swagger spec file
@@ -46,41 +57,41 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.2.0] - 2022-05-27
 
-## Added
+### Added
 
 - The standings page is now visible to everyone who has basic access to the app. Except the related mains are onlny shown if the user has an additional permission. (#3)
 
-## Changed
+### Changed
 
 - Big UI overhaul
 - Character and group standings have been consolidated into one page
-- Improved decription of permissions
+- Improved description of permissions
 - Technical: Replaced all angularjs legacy code with HTMX and JQuery datatables, since it is no longer supported by Google
 - Technical: Converted `trans` template tags to `translate`
 
-## Fixed
+### Fixed
 
 - Providing no STR_CORP_IDS or no STR_ALLIANCE_IDS results in an internal server error
 
 ## [1.1.1] - 2022-03-02
 
-## Changed
+### Changed
 
 - Updated depenencies for compatibility with AA3
 
 ## [1.1.0] - 2022-02-13
 
-## Added
+### Added
 
 - Request Log: Requests & Revocation related actions by managers and the system are now automatically logged and visible on the admin site for auditing purposes.
 
-## Changed
+### Changed
 
 - Drops support for AA below 2.9
 - Drops support for Python 3.6
 - Drops support for Django 3.1
 
-## Fixed
+### Fixed
 
 - Disabled apply button for create requests can no longer be clicked
 
@@ -88,13 +99,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 This version is now further developed as fork of: <https://gitlab.com/basraah/standingsrequests>
 
-## Changed
+### Changed
 
 - Adaptations for AA 2.9 / Django 3.2
 - Added CI tests for AA 2.9 / Django 3.2
 - The main repo for this app is now: <https://gitlab.com/ErikKalkoken/aa-standingsrequests>
 
-## Fixed
+### Fixed
 
 - Invalid CEO ID creating havoc for Eve Entity resolution
 
