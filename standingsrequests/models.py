@@ -4,6 +4,7 @@ from typing import List, Optional
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.utils import translation
 from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.timezone import now
@@ -493,40 +494,44 @@ class AbstractStandingsRequest(models.Model):
         organization_name = organization.name if organization else ""
 
         if self.is_standing_request:
+            title = _("%(title)s: Standing with %(contact)s now in effect") % {
+                "title": __title__,
+                "contact": contact.name,
+            }
+            message = _(
+                "'%(organization_name)s' now has blue standing with "
+                "your alt %(contact_category)s '%(contact_name)s'. "
+                "Please also update the standing of "
+                "your %(contact_category)s accordingly."
+            ) % {
+                "organization_name": organization_name,
+                "contact_category": contact.category,
+                "contact_name": contact.name,
+            }
+
             notify(
                 user=self.user,
-                title=_("%s: Standing with %s now in effect")
-                % (__title__, contact.name),
-                message=_(
-                    "'%(organization_name)s' now has blue standing with "
-                    "your alt %(contact_category)s '%(contact_name)s'. "
-                    "Please also update the standing of "
-                    "your %(contact_category)s accordingly."
-                )
-                % {
-                    "organization_name": organization_name,
-                    "contact_category": contact.category,
-                    "contact_name": contact.name,
-                },
+                title=title,
+                message=message,
             )
         elif self.is_standing_revocation:
             if self.user:
-                notify(
-                    user=self.user,
-                    title=f"{__title__}: Standing with {contact.name} revoked",
-                    message=_(
-                        "'%(organization_name)s' no longer has "
-                        "standing with your "
-                        "%(contact_category)s '%(contact_name)s'. "
-                        "Please also update the standing of "
-                        "your %(contact_category)s accordingly."
-                    )
-                    % {
-                        "organization_name": organization_name,
-                        "contact_category": contact.category,
-                        "contact_name": contact.name,
-                    },
-                )
+                title = _("%(title)s: Standing with %(contact)s revoked") % {
+                    "title": __title__,
+                    "contact": contact.name,
+                }
+                message = _(
+                    "'%(organization_name)s' no longer has "
+                    "standing with your "
+                    "%(contact_category)s '%(contact_name)s'. "
+                    "Please also update the standing of "
+                    "your %(contact_category)s accordingly."
+                ) % {
+                    "organization_name": organization_name,
+                    "contact_category": contact.category,
+                    "contact_name": contact.name,
+                }
+                notify(user=self.user, title=title, message=message)
 
     def _removing_effective_standing(self):
         self.delete(reason=StandingRevocation.Reason.REVOKED_IN_GAME)
@@ -558,9 +563,11 @@ class AbstractStandingsRequest(models.Model):
             },
         )
 
-        # Notify standing manager
-        notify(user=actioned_timeout, title=title, message=message)
-        # Notify the user
+        # Notify standing manager in English only
+        with translation.override("en"):
+            notify(user=actioned_timeout, title=title, message=message)
+
+        # Notify the user in their chosen language
         notify(user=self.user, title=title, message=message)
 
 
