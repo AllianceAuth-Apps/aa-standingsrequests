@@ -9,13 +9,13 @@ from eveuniverse.models import EveEntity
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.esi_testing import BravadoResponseStub
+from app_utils.testdata_factories import UserFactory
 from app_utils.testing import NoSocketsTestCase, add_character_to_user, create_fake_user
 
 from standingsrequests.core import app_config
 from standingsrequests.models import (
     AbstractStandingsRequest,
     CharacterAffiliation,
-    Contact,
     ContactSet,
     CorporationDetails,
     FrozenAlt,
@@ -25,7 +25,14 @@ from standingsrequests.models import (
     StandingRevocation,
 )
 
-from .testdata.entity_type_ids import CHARACTER_TYPE_ID, CORPORATION_TYPE_ID
+from .testdata.entity_type_ids import CORPORATION_TYPE_ID
+from .testdata.factories import (
+    ContactFactory,
+    ContactSetFactory,
+    ManagerUserMainFactory,
+    RequestorUserMainFactory,
+    StandingRequestFactory,
+)
 from .testdata.my_test_data import (
     TEST_STANDINGS_API_CHARID,
     TEST_STANDINGS_API_CHARNAME,
@@ -122,30 +129,23 @@ class TestAbstractStandingsRequestManager(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         create_contacts_set()
-        cls.user_requestor = AuthUtils.create_member("Bruce Wayne")
-        cls.user_manager = AuthUtils.create_user("Mike Manager")
+        cls.user_requestor = RequestorUserMainFactory()
+        cls.user_manager = ManagerUserMainFactory()
 
     def test_pending_requests_empty(self):
         self.assertEqual(StandingRequest.objects.pending_requests().count(), 0)
 
     def test_should_count_pending_requests_correctly(self):
         # given
-        StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=False,
+        StandingRequestFactory(
+            user=self.user_requestor, contact_id=1001, is_effective=False
         )
-        StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=True,
+        StandingRequestFactory(
+            user=self.user_requestor, contact_id=1002, is_effective=True
         )
-        StandingRequest.objects.create(
+        StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1003,
-            contact_type_id=CHARACTER_TYPE_ID,
             is_effective=False,
             action_date=now(),
         )
@@ -155,18 +155,14 @@ class TestAbstractStandingsRequestManager(TestCase):
         self.assertEqual(result.count(), 1)
 
     def test_pending_request(self, *args, **kwargs):
-        StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=False,
+        StandingRequestFactory(
+            user=self.user_requestor, contact_id=1001, is_effective=False
         )
         self.assertTrue(AbstractStandingsRequest.objects.has_pending_request(1001))
 
-        StandingRequest.objects.create(
+        StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -177,23 +173,19 @@ class TestAbstractStandingsRequestManager(TestCase):
 
 class TestAbstractStandingsRequestAnnotations(TestCase):
     def setUp(self):
-        self.user_manager = AuthUtils.create_user("Mike Manager")
+        self.user_manager = ManagerUserMainFactory()
         self.user_requestor = AuthUtils.create_user("Roger Requestor")
         self.contact_set = create_contacts_set()
         create_standings_char()
 
     def test_pending_request_annotation(self):
         # given
-        r1 = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=False,
+        r1 = StandingRequestFactory(
+            user=self.user_requestor, contact_id=1001, is_effective=False
         )
-        r2 = StandingRequest.objects.create(
+        r2 = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -212,7 +204,7 @@ class TestStandingsRequestValidateRequests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         create_contacts_set()
-        cls.user = AuthUtils.create_member("Bruce Wayne")
+        cls.user = UserFactory()
 
     def test_do_nothing_character_request_is_valid(
         self, mock_can_request_corporation_standing
@@ -281,8 +273,8 @@ class TestStandingsRequestManager(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         create_contacts_set()
-        cls.user_requestor = AuthUtils.create_member("Bruce Wayne")
-        cls.user_manager = AuthUtils.create_user("Mike Manager")
+        cls.user_requestor = RequestorUserMainFactory()
+        cls.user_manager = ManagerUserMainFactory()
 
     def test_should_add_new_request(self):
         # when
@@ -308,14 +300,14 @@ class TestStandingsRequestManager(TestCase):
 class TestStandingsRevocationManager(TestCase):
     def setUp(self):
         load_eve_entities()
-        my_set = ContactSet.objects.create(name="Dummy Set")
-        Contact.objects.create(contact_set=my_set, eve_entity_id=1001, standing=10)
-        Contact.objects.create(contact_set=my_set, eve_entity_id=1002, standing=5)
-        Contact.objects.create(contact_set=my_set, eve_entity_id=1003, standing=0.01)
-        Contact.objects.create(contact_set=my_set, eve_entity_id=1005, standing=0)
-        Contact.objects.create(contact_set=my_set, eve_entity_id=1008, standing=-5)
-        Contact.objects.create(contact_set=my_set, eve_entity_id=1009, standing=-10)
-        self.user_manager = AuthUtils.create_user("Mike Manager")
+        my_set = ContactSetFactory()
+        ContactFactory(contact_set=my_set, eve_entity_id=1001, standing=10)
+        ContactFactory(contact_set=my_set, eve_entity_id=1002, standing=5)
+        ContactFactory(contact_set=my_set, eve_entity_id=1003, standing=0.01)
+        ContactFactory(contact_set=my_set, eve_entity_id=1005, standing=0)
+        ContactFactory(contact_set=my_set, eve_entity_id=1008, standing=-5)
+        ContactFactory(contact_set=my_set, eve_entity_id=1009, standing=-10)
+        self.user_manager = ManagerUserMainFactory()
         self.user_requestor = AuthUtils.create_user("Roger Requestor")
 
     def test_add_revocation_new(self):
@@ -355,7 +347,7 @@ class TestCharacterAffiliationsManager(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user_manager = AuthUtils.create_user("Mike Manager")
+        cls.user_manager = ManagerUserMainFactory()
         cls.user_requestor = AuthUtils.create_user("Roger Requestor")
 
     def test_should_create_new_assocs(self, mock_esi):
@@ -364,10 +356,9 @@ class TestCharacterAffiliationsManager(NoSocketsTestCase):
             esi_post_characters_affiliation
         )
         create_contacts_set(include_assoc=False)
-        StandingRequest.objects.create(
+        StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
         )
@@ -511,10 +502,9 @@ class TestRequestLogEntryManager(TestCase):
 
     def test_should_create_entry_for_confirmed_request(self):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1007,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
         )
@@ -698,9 +688,7 @@ class TestFrozenAltManager(NoSocketsTestCase):
 
     def test_should_create_new_character_without_affiliations(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user, contact_id=1002, contact_type_id=CHARACTER_TYPE_ID
-        )
+        my_request = StandingRequestFactory(user=self.user, contact_id=1002)
         # when
         obj, created = FrozenAlt.objects.get_or_create_from_standing_request(my_request)
         # then
@@ -712,12 +700,10 @@ class TestFrozenAltManager(NoSocketsTestCase):
 
     def test_should_create_new_character_with_affiliations(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user, contact_id=1099, contact_type_id=CHARACTER_TYPE_ID
-        )
         character = EveEntity.objects.create(
             id=1099, category=EveEntity.CATEGORY_CHARACTER, name="dummy"
         )
+        my_request = StandingRequestFactory(user=self.user, contact_id=1099)
         CharacterAffiliation.objects.create(
             character=character,
             corporation_id=2001,
@@ -736,7 +722,7 @@ class TestFrozenAltManager(NoSocketsTestCase):
 
     def test_should_create_new_corporation_without_affiliations(self):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user, contact_id=2099, contact_type_id=CORPORATION_TYPE_ID
         )
         # when
@@ -750,12 +736,10 @@ class TestFrozenAltManager(NoSocketsTestCase):
 
     def test_should_create_new_corporation_with_affiliations(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user, contact_id=2099, contact_type_id=CORPORATION_TYPE_ID
-        )
         corporation = EveEntity.objects.create(
             id=2099, category=EveEntity.CATEGORY_CORPORATION, name="dummy"
         )
+        my_request = StandingRequestFactory(user=self.user, contact_id=2099)
         CorporationDetails.objects.create(
             corporation=corporation,
             alliance_id=3001,
@@ -775,10 +759,10 @@ class TestFrozenAltManager(NoSocketsTestCase):
 
     def test_should_get_existing_minimal_obj(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user, contact_id=1003, contact_type_id=CHARACTER_TYPE_ID
+        my_request = StandingRequestFactory(user=self.user, contact_id=1003)
+        existing_obj = FrozenAlt.objects.create(
+            character_id=1003, category=FrozenAlt.Category.CHARACTER
         )
-        existing_obj = FrozenAlt.objects.create(character_id=1003, category="CH")
         # when
         obj, created = FrozenAlt.objects.get_or_create_from_standing_request(my_request)
         # then
@@ -787,12 +771,10 @@ class TestFrozenAltManager(NoSocketsTestCase):
 
     def test_should_get_existing_full_obj(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user, contact_id=1099, contact_type_id=CHARACTER_TYPE_ID
-        )
         character = EveEntity.objects.create(
             id=1099, category=EveEntity.CATEGORY_CHARACTER, name="dummy"
         )
+        my_request = StandingRequestFactory(user=self.user, contact_id=1099)
         CharacterAffiliation.objects.create(
             character=character,
             corporation_id=2001,
@@ -803,7 +785,7 @@ class TestFrozenAltManager(NoSocketsTestCase):
             character_id=1099,
             corporation_id=2001,
             alliance_id=3001,
-            category="CH",
+            category=FrozenAlt.Category.CHARACTER,
             faction_id=500001,
         )
         # when

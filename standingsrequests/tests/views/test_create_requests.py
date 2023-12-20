@@ -21,6 +21,10 @@ from standingsrequests.models import (
     StandingRequest,
     StandingRevocation,
 )
+from standingsrequests.tests.testdata.factories import (
+    StandingRequestFactory,
+    StandingRevocationFactory,
+)
 from standingsrequests.tests.testdata.my_test_data import (
     TEST_STANDINGS_API_CHARID,
     TEST_STANDINGS_API_CHARNAME,
@@ -283,11 +287,7 @@ class TestRequestCharacterStanding(TestCase):
         # given
         character = create_entity(EveCharacter, 1110)
         add_character_to_user(self.user, character, scopes=["required_scope"])
-        StandingRequest.objects.create(
-            contact_id=character.character_id,
-            contact_type_id=ContactTypeId.character_id(),
-            user=self.user,
-        )
+        StandingRequestFactory(contact_id=character.character_id, user=self.user)
         request = self.factory.get("/")
         request.user = self.user
 
@@ -309,11 +309,7 @@ class TestRequestCharacterStanding(TestCase):
         # given
         character = create_entity(EveCharacter, 1110)
         add_character_to_user(self.user, character, scopes=["required_scope"])
-        StandingRevocation.objects.create(
-            contact_id=character.character_id,
-            contact_type_id=ContactTypeId.character_id(),
-            user=self.user,
-        )
+        StandingRevocationFactory(contact_id=character.character_id, user=self.user)
         request = self.factory.get("/")
         request.user = self.user
 
@@ -591,11 +587,7 @@ class TestRequestCorporationStanding(TestCase):
 
     def test_should_return_false_if_pending_request(self):
         # given
-        StandingRequest.objects.create(
-            contact_id=2102,
-            contact_type_id=ContactTypeId.CORPORATION,
-            user=self.user,
-        )
+        StandingRequestFactory(contact_id=2102, user=self.user)
         # when
         result = self._view_request_corp_standing(2102)
         # then
@@ -603,7 +595,7 @@ class TestRequestCorporationStanding(TestCase):
 
     def test_should_return_false_if_pending_revocation(self):
         # given
-        StandingRevocation.objects.create(
+        StandingRevocationFactory(
             contact_id=2102,
             contact_type_id=ContactTypeId.CORPORATION,
             user=self.user,

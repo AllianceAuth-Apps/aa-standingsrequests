@@ -18,10 +18,11 @@ from app_utils.esi_testing import BravadoOperationStub, BravadoResponseStub
 from standingsrequests.managers import EsiContactsContainer
 from standingsrequests.models import (
     CharacterAffiliation,
-    Contact,
     ContactSet,
     CorporationDetails,
 )
+
+from .factories import ContactFactory, ContactSetFactory
 
 TEST_STANDINGS_API_CHARID = 1001
 TEST_STANDINGS_API_CHARNAME = "Bruce Wayne"
@@ -207,7 +208,7 @@ def get_test_contacts():
 
 def create_contacts_set(my_set: ContactSet = None, include_assoc=True) -> ContactSet:
     if not my_set:
-        my_set = ContactSet.objects.create(name="Dummy Set")
+        my_set = ContactSetFactory()
 
     # add labels
     ContactSet.objects._add_labels_from_api(my_set, get_test_labels())
@@ -230,7 +231,7 @@ def create_contacts_set(my_set: ContactSet = None, include_assoc=True) -> Contac
                 "category": category,
             },
         )
-        my_standing = Contact.objects.create(
+        my_standing = ContactFactory(
             contact_set=my_set,
             eve_entity=eve_entity,
             standing=contact["standing"],

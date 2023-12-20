@@ -28,6 +28,12 @@ from standingsrequests.models import (
 )
 
 from .testdata.entity_type_ids import CHARACTER_TYPE_ID, CORPORATION_TYPE_ID
+from .testdata.factories import (
+    ContactFactory,
+    ManagerUserMainFactory,
+    RequestorUserMainFactory,
+    StandingRequestFactory,
+)
 from .testdata.my_test_data import (
     TEST_STANDINGS_ALLIANCE_ID,
     TEST_STANDINGS_API_CHARID,
@@ -63,7 +69,7 @@ class TestContactSetCreateStanding(TestCase):
         cls.contact_set = create_contacts_set()
 
     def test_can_create_pilot_standing(self):
-        obj = Contact.objects.create(
+        obj = ContactFactory(
             contact_set=self.contact_set, eve_entity_id=1009, standing=-10
         )
         obj.labels.add(*ContactLabel.objects.all())
@@ -72,7 +78,7 @@ class TestContactSetCreateStanding(TestCase):
         self.assertEqual(obj.standing, -10)
 
     def test_can_create_corp_standing(self):
-        obj = Contact.objects.create(
+        obj = ContactFactory(
             contact_set=self.contact_set, eve_entity_id=2102, standing=-10
         )
         obj.labels.add(*ContactLabel.objects.all())
@@ -81,7 +87,7 @@ class TestContactSetCreateStanding(TestCase):
         self.assertEqual(obj.standing, -10)
 
     def test_can_create_alliance_standing(self):
-        obj = Contact.objects.create(
+        obj = ContactFactory(
             contact_set=self.contact_set, eve_entity_id=3001, standing=5
         )
         obj.labels.add(*ContactLabel.objects.all())
@@ -198,7 +204,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user_manager = AuthUtils.create_user("Mike Manager")
+        cls.user_manager = ManagerUserMainFactory()
         cls.user_requestor = AuthUtils.create_user("Roger Requestor")
         cls.contact_set = create_contacts_set()
         create_standings_char()
@@ -207,10 +213,9 @@ class TestAbstractStandingsRequestValidate(TestCase):
         self, mock_notify
     ):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=False,
@@ -231,10 +236,9 @@ class TestAbstractStandingsRequestValidate(TestCase):
 
     def test_dont_inform_user_when_sr_was_effective_before(self, mock_notify):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -256,7 +260,7 @@ class TestAbstractStandingsRequestValidate(TestCase):
         self, mock_notify
     ):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=2003,
             contact_type_id=CORPORATION_TYPE_ID,
@@ -277,10 +281,9 @@ class TestAbstractStandingsRequestValidate(TestCase):
 
     def test_notify_about_requests_that_are_reset_and_timed_out(self, mock_notify):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1008,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now() - timedelta(hours=25),
         )
@@ -294,10 +297,9 @@ class TestAbstractStandingsRequestValidate(TestCase):
     def test_dont_notify_about_requests_that_are_reset_and_not_timed_out(
         self, mock_notify
     ):
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1008,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now() - timedelta(hours=1),
         )
@@ -310,10 +312,9 @@ class TestAbstractStandingsRequestValidate(TestCase):
 
     def test_no_action_when_actioned_standing_but_not_in_game_yet(self, mock_notify):
         # given
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
         )
@@ -347,12 +348,8 @@ class TestStandingRequest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         create_contacts_set()
-        cls.user_manager = User.objects.create_user(
-            "Mike Manager", "mm@example.com", "password"
-        )
-        cls.user_requestor = User.objects.create_user(
-            "Roger Requestor", "rr@example.com", "password"
-        )
+        cls.user_manager = ManagerUserMainFactory()
+        cls.user_requestor = RequestorUserMainFactory()
 
     def test_is_standing_satisfied(self):
         class MyStandingRequest(AbstractStandingsRequest):
@@ -366,50 +363,40 @@ class TestStandingRequest(TestCase):
         self.assertFalse(MyStandingRequest.is_standing_satisfied(None))
 
     def test_check_standing_satisfied_check_only(self):
-        my_request = StandingRequest(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
+        my_request = StandingRequestFactory.build(
+            user=self.user_requestor, contact_id=1001
         )
         self.assertTrue(my_request.evaluate_effective_standing(check_only=True))
 
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1002,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
+        my_request = StandingRequestFactory.build(
+            user=self.user_requestor, contact_id=1002
         )
         self.assertTrue(my_request.evaluate_effective_standing(check_only=True))
 
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1003,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
+        my_request = StandingRequestFactory.build(
+            user=self.user_requestor, contact_id=1003
         )
         self.assertTrue(my_request.evaluate_effective_standing(check_only=True))
 
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1005,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
+        my_request = StandingRequestFactory.build(
+            user=self.user_requestor, contact_id=1005
         )
         self.assertFalse(my_request.evaluate_effective_standing(check_only=True))
 
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1009,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
+        my_request = StandingRequestFactory.build(
+            user=self.user_requestor, contact_id=1009
         )
         self.assertFalse(my_request.evaluate_effective_standing(check_only=True))
 
     def test_check_standing_satisfied_no_standing(self):
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor, contact_id=1999, contact_type_id=CHARACTER_TYPE_ID
         )
         self.assertFalse(my_request.evaluate_effective_standing(check_only=True))
 
     def test_mark_standing_effective_1(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
+        my_request = StandingRequestFactory(user=self.user_requestor, contact_id=1001)
         # when
         my_request.mark_effective()
         # then
@@ -419,9 +406,7 @@ class TestStandingRequest(TestCase):
 
     def test_mark_standing_effective_2(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
+        my_request = StandingRequestFactory(user=self.user_requestor, contact_id=1001)
         my_date = now() - timedelta(days=5, hours=4)
         # when
         my_request.mark_effective(date=my_date)
@@ -431,9 +416,7 @@ class TestStandingRequest(TestCase):
         self.assertEqual(my_request.effective_date, my_date)
 
     def test_check_standing_satisfied_and_mark(self):
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
+        my_request = StandingRequestFactory(user=self.user_requestor, contact_id=1001)
         self.assertTrue(my_request.evaluate_effective_standing())
         my_request.refresh_from_db()
         self.assertTrue(my_request.is_effective)
@@ -441,11 +424,7 @@ class TestStandingRequest(TestCase):
 
     def test_mark_standing_actioned(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-        )
+        my_request = StandingRequestFactory(user=self.user_requestor, contact_id=1001)
         # when
         my_request.mark_actioned(self.user_manager)
         # then
@@ -456,11 +435,7 @@ class TestStandingRequest(TestCase):
 
     def test_mark_standing_actioned_with_reason(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-        )
+        my_request = StandingRequestFactory(user=self.user_requestor, contact_id=1001)
         # when
         my_request.mark_actioned(
             user=self.user_manager, reason=StandingRequest.Reason.STANDING_IN_GAME
@@ -475,7 +450,6 @@ class TestStandingRequest(TestCase):
         my_request = StandingRequest(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -486,16 +460,14 @@ class TestStandingRequest(TestCase):
         my_request = StandingRequest(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             is_effective=False,
         )
         self.assertIsNone(my_request.check_actioned_timeout())
 
     def test_check_standing_actioned_timeout_after_deadline(self):
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now() - timedelta(hours=25),
             is_effective=False,
@@ -509,7 +481,6 @@ class TestStandingRequest(TestCase):
         my_request = StandingRequest(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=False,
@@ -517,10 +488,9 @@ class TestStandingRequest(TestCase):
         self.assertFalse(my_request.check_actioned_timeout())
 
     def test_reset_to_initial(self):
-        my_request = StandingRequest.objects.create(
+        my_request = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -547,52 +517,31 @@ class TestStandingRequestDelete(TestCase):
         )
 
     def test_delete_for_non_effective_dont_add_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=False,
+        my_request_effective = StandingRequestFactory(
+            user=self.user_requestor, contact_id=1001, is_effective=False
         )
         my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        self.assertFalse(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
+        self.assertFalse(StandingRequest.objects.filter(contact_id=1001).exists())
+        self.assertFalse(StandingRevocation.objects.filter(contact_id=1001).exists())
 
     def test_delete_for_effective_add_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
+        my_request_effective = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
             effective_date=now(),
         )
         my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        self.assertTrue(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
+        self.assertFalse(StandingRequest.objects.filter(contact_id=1001).exists())
+        self.assertTrue(StandingRevocation.objects.filter(contact_id=1001).exists())
 
     def test_delete_for_effective_add_revocation_and_reason(self):
         # given
-        my_request_effective = StandingRequest.objects.create(
+        my_request_effective = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -605,42 +554,26 @@ class TestStandingRequestDelete(TestCase):
         )
 
         # then
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        obj = StandingRevocation.objects.get(
-            contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
+        self.assertFalse(StandingRequest.objects.filter(contact_id=1001).exists())
+        obj = StandingRevocation.objects.get(contact_id=1001)
         self.assertEqual(obj.reason, AbstractStandingsRequest.Reason.REVOKED_IN_GAME)
 
     def test_delete_for_pending_add_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
+        my_request_effective = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=False,
         )
         my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        self.assertTrue(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
+        self.assertFalse(StandingRequest.objects.filter(contact_id=1001).exists())
+        self.assertTrue(StandingRevocation.objects.filter(contact_id=1001).exists())
 
     def test_delete_for_effective_dont_add_another_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
+        my_request_effective = StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=True,
@@ -650,15 +583,9 @@ class TestStandingRequestDelete(TestCase):
             1001, StandingRevocation.ContactType.CHARACTER
         )
         my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
+        self.assertFalse(StandingRequest.objects.filter(contact_id=1001).exists())
         self.assertEqual(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).count(),
+            StandingRevocation.objects.filter(contact_id=1001).count(),
             1,
         )
 
@@ -678,7 +605,6 @@ class TestStandingRequest2(TestCase):
         my_request = StandingRequest(
             user=self.user_requestor,
             contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=False,
@@ -695,7 +621,7 @@ class TestStandingRequestClassMethods(TestCase):
             **get_my_test_data()["EveCorporationInfo"]["2001"]
         )
         my_user = AuthUtils.create_user("John Doe")
-        for character_id, character in get_my_test_data()["EveCharacter"].items():
+        for character in get_my_test_data()["EveCharacter"].values():
             if character["corporation_id"] == 2001:
                 my_character = EveCharacter.objects.create(**character)
                 _store_as_Token(
@@ -770,7 +696,7 @@ class TestStandingRequestClassMethods(TestCase):
             **get_my_test_data()["EveCorporationInfo"]["2001"]
         )
         user_1 = AuthUtils.create_user("John Doe")
-        for character_id, character in get_my_test_data()["EveCharacter"].items():
+        for character in get_my_test_data()["EveCharacter"].values():
             if character["corporation_id"] == 2001:
                 my_character = EveCharacter.objects.create(**character)
                 add_character_to_user(
@@ -812,7 +738,7 @@ class TestStandingsManagerHasRequiredScopesForRequest(TestCase):
         self, mock_get_required_scopes_for_state
     ):
         mock_get_required_scopes_for_state.return_value = ["abc"]
-        user = AuthUtils.create_member("Bruce Wayne")
+        user = RequestorUserMainFactory()
         character = AuthUtils.add_main_character_2(
             user=user,
             name="Batman",
@@ -827,7 +753,7 @@ class TestStandingsManagerHasRequiredScopesForRequest(TestCase):
         self, mock_get_required_scopes_for_state
     ):
         mock_get_required_scopes_for_state.return_value = ["xyz"]
-        user = AuthUtils.create_member("Bruce Wayne")
+        user = RequestorUserMainFactory()
         character = AuthUtils.add_main_character_2(
             user=user,
             name="Batman",

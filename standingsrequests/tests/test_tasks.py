@@ -7,9 +7,9 @@ from django.utils.timezone import now
 from allianceauth.tests.auth_utils import AuthUtils
 
 from standingsrequests import tasks
-from standingsrequests.models import ContactSet, StandingRequest, StandingRevocation
+from standingsrequests.models import ContactSet
 
-from .testdata.entity_type_ids import CHARACTER_TYPE_ID
+from .testdata.factories import StandingRequestFactory, StandingRevocationFactory
 from .testdata.my_test_data import create_contacts_set
 
 MODULE_PATH = "standingsrequests.tasks"
@@ -35,17 +35,14 @@ class TestStandingsUpdate(TestCase):
     ):
         # given
         mock_create_new_from_api.return_value = self.contact_set
-        StandingRequest.objects.create(
+        StandingRequestFactory(
             user=self.user_requestor,
             contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
             action_by=self.user_manager,
             action_date=now(),
             is_effective=False,
         )
-        StandingRevocation.objects.create(
-            user=self.user_requestor, contact_id=1003, contact_type_id=CHARACTER_TYPE_ID
-        )
+        StandingRevocationFactory(user=self.user_requestor, contact_id=1003)
 
         # when
         tasks.standings_update.delay()

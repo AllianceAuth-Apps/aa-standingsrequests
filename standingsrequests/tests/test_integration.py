@@ -22,6 +22,7 @@ from standingsrequests.models import (
     StandingRevocation,
 )
 
+from .testdata.factories import StandingRequestFactory
 from .testdata.my_test_data import (
     TEST_STANDINGS_ALLIANCE_ID,
     TEST_STANDINGS_API_CHARID,
@@ -135,7 +136,7 @@ class TestMainUseCases(WebTest):
         else:
             raise NotImplementedError()
 
-        return StandingRequest.objects.create(
+        return StandingRequestFactory(
             user=self.user_requestor,
             contact_id=contact_id,
             contact_type_id=contact_type_id,
