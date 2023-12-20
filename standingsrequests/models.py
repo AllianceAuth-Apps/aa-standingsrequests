@@ -446,14 +446,17 @@ class AbstractStandingsRequest(models.Model):
         self.action_date = None
         self.save()
 
-    def process(self):
-        """Process a request."""
+    def validate(self):
+        """Validate a standing request or standing revocation
+        and update or delete them if necessary.
+        """
         if type(self) is AbstractStandingsRequest:
             raise TypeError("Can not be called for abstract requests")
 
         contact = EveEntity.objects.get_or_create_esi(id=self.contact_id)[0]
         has_been_effective = self.is_effective
         is_satisfied_standing = self.evaluate_effective_standing()
+
         if is_satisfied_standing and not has_been_effective:
             if SR_NOTIFICATIONS_ENABLED:
                 self._notify_user_about_standing_change(contact=contact)

@@ -16,8 +16,8 @@ MODULE_PATH = "standingsrequests.tasks"
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(MODULE_PATH + ".StandingRevocation.process")
-@patch(MODULE_PATH + ".StandingRequest.process")
+@patch(MODULE_PATH + ".StandingRevocation.validate")
+@patch(MODULE_PATH + ".StandingRequest.validate")
 @patch(MODULE_PATH + ".ContactSet.objects.create_new_from_api")
 class TestStandingsUpdate(TestCase):
     @classmethod

@@ -194,7 +194,7 @@ class TestAbstractStandingsRequest(TestCase):
 @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
 @patch(MODELS_PATH + ".SR_STANDING_TIMEOUT_HOURS", 24)
 @patch(MODELS_PATH + ".notify")
-class TestAbstractStandingsRequestProcess(TestCase):
+class TestAbstractStandingsRequestValidate(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -217,7 +217,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
         )
 
         # when
-        my_request.process()
+        my_request.validate()
 
         # then
         my_request.refresh_from_db()
@@ -242,7 +242,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
         )
 
         # when
-        my_request.process()
+        my_request.validate()
 
         # then
         my_request.refresh_from_db()
@@ -265,7 +265,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
         )
 
         # when
-        my_request.process()
+        my_request.validate()
 
         # then
         my_request.refresh_from_db()
@@ -286,7 +286,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
         )
 
         # when
-        my_request.process()
+        my_request.validate()
 
         # then
         self.assertEqual(mock_notify.call_count, 2)
@@ -303,7 +303,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
         )
 
         # when
-        my_request.process()
+        my_request.validate()
 
         # then
         self.assertEqual(mock_notify.call_count, 0)
@@ -320,7 +320,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
         self.contact_set.contacts.get(eve_entity_id=1002).delete()
 
         # when
-        my_request.process()
+        my_request.validate()
 
         # then
         my_request.refresh_from_db()
@@ -339,7 +339,7 @@ class TestAbstractStandingsRequestProcess(TestCase):
 
         # when/then
         with self.assertRaises(TypeError):
-            my_request.process()
+            my_request.validate()
 
 
 class TestStandingRequest(TestCase):
