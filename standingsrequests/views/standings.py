@@ -116,13 +116,17 @@ def _identify_main_for_character(contact):
     else:
         main = user.profile.main_character
         state = user.profile.state.name if user.profile.state else "-"
-        main_character_name = main.character_name
-        main_character_ticker = main.corporation_ticker
-        main_character_icon_url = main.portrait_url(DEFAULT_ICON_SIZE)
-        main_character_html = label_with_icon(
-            main_character_icon_url,
-            f"[{main_character_ticker}] {main_character_name}",
-        )
+        if main:
+            main_character_name = main.character_name
+            main_character_ticker = main.corporation_ticker
+            main_character_icon_url = main.portrait_url(DEFAULT_ICON_SIZE)
+            main_character_html = label_with_icon(
+                main_character_icon_url,
+                f"[{main_character_ticker}] {main_character_name}",
+            )
+        else:
+            print("a")
+            main_character_name = main_character_html = "No main associated"
 
     return state, main_character_name, main_character_html
 
