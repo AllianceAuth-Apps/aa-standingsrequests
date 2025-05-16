@@ -4,13 +4,14 @@ from unittest.mock import patch
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.timezone import now
+from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.testing import add_character_to_user
 
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.models import CharacterAffiliation, StandingRequest
+from standingsrequests.models import CharacterAffiliation, Contact, StandingRequest
 from standingsrequests.tests.testdata.my_test_data import (
     create_contacts_set,
     create_eve_objects,
@@ -19,6 +20,7 @@ from standingsrequests.tests.testdata.my_test_data import (
 )
 from standingsrequests.tests.utils import PartialDictEqualMixin, json_response_to_dict_2
 from standingsrequests.views import standings
+from standingsrequests.views.standings import _identify_main_for_character
 
 TEST_SCOPE = "publicData"
 MODULE_PATH = "standingsrequests.views.standings"
@@ -155,6 +157,33 @@ class TestCharacterStandingsData(PartialDictEqualMixin, TestCase):
             "state": "",
         }
         self.assertPartialDictEqual(data_character_1002, expected)
+
+    def test_identify_main_works_without_main(self):
+        # given
+        character = EveCharacter.objects.get(character_id=1004)
+        add_character_to_user(
+            self.user,
+            character,
+            scopes=[TEST_SCOPE],
+        )
+        character_entity = EveEntity.objects.get(id=1004)
+        contact = Contact.objects.create(
+            contact_set=self.contact_set,
+            eve_entity=character_entity,
+            standing=10.0,
+        )
+        # checks that there's no main defined
+        self.assertIsNone(self.user.profile.main_character)
+        # when
+        state, main_character_name, main_character_html = _identify_main_for_character(
+            contact
+        )
+        # then
+        self.assertEqual(main_character_name, "No main associated")
+        self.assertEqual(main_character_html, "No main associated")
+        self.assertEqual(
+            state, "Member"
+        )  # AuthUtils.create_member gives them Member by default
 
 
 class TestCorporationStandingsData(PartialDictEqualMixin, TestCase):

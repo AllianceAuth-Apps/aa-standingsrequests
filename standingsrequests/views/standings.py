@@ -125,7 +125,6 @@ def _identify_main_for_character(contact):
                 f"[{main_character_ticker}] {main_character_name}",
             )
         else:
-            print("a")
             main_character_name = main_character_html = "No main associated"
 
     return state, main_character_name, main_character_html
