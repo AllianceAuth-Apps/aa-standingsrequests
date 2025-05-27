@@ -180,7 +180,7 @@ class TestCharacterStandingsData(PartialDictEqualMixin, TestCase):
         )
         # then
         self.assertEqual(main_character_name, "No main associated")
-        self.assertEqual(main_character_html, "No main associated")
+        self.assertEqual(main_character_html, "")
         self.assertEqual(
             state, "Member"
         )  # AuthUtils.create_member gives them Member by default

@@ -112,7 +112,8 @@ def _identify_main_for_character(contact):
         character = contact.eve_entity.character_affiliation.eve_character
         user = character.character_ownership.user
     except (AttributeError, ObjectDoesNotExist):
-        state = main_character_name = main_character_html = "-"
+        state = main_character_name = "-"
+        main_character_html = ""
     else:
         main = user.profile.main_character
         state = user.profile.state.name if user.profile.state else "-"
@@ -125,7 +126,8 @@ def _identify_main_for_character(contact):
                 f"[{main_character_ticker}] {main_character_name}",
             )
         else:
-            main_character_name = main_character_html = "No main associated"
+            main_character_name = "No main associated"
+            main_character_html = ""
 
     return state, main_character_name, main_character_html
 
