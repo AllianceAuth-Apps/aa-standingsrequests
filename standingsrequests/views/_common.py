@@ -193,10 +193,10 @@ def compose_standing_requests_data(
     """composes list of standings requests or revocations based on queryset
     and returns it
     """
-    requests_query: models.QuerySet[
-        AbstractStandingsRequest
-    ] = requests_qs.select_related(
-        "user", "user__profile__state", "user__profile__main_character"
+    requests_query: models.QuerySet[AbstractStandingsRequest] = (
+        requests_qs.select_related(
+            "user", "user__profile__state", "user__profile__main_character"
+        )
     )
     eve_characters = _preload_eve_characters(requests_query)
     eve_corporations = _preload_eve_corporations(requests_query)

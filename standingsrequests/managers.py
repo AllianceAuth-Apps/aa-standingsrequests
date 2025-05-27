@@ -762,9 +762,9 @@ class RequestLogEntryManagerBase(models.Manager):
             FrozenAlt.objects.get_or_create_from_standing_request(standing_request)[0]
         )
         if action_by:
-            action_by_obj: Optional[
-                FrozenAuthUser
-            ] = FrozenAuthUser.objects.get_or_create_from_user(action_by)[0]
+            action_by_obj: Optional[FrozenAuthUser] = (
+                FrozenAuthUser.objects.get_or_create_from_user(action_by)[0]
+            )
         else:
             action_by_obj = None
 
