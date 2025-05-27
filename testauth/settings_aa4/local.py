@@ -11,6 +11,8 @@ SECRET_KEY = "t$@h+j#yqhmuy$x7$fkhytd&drajgfsb-6+j9pqn*vj0)gq&-2"
 # This is where css/images will be placed for your webserver to read
 STATIC_ROOT = "/var/www/testauth/static/"
 
+ESI_USER_CONTACT_EMAIL = "samplecontact@email.com"
+
 # Change this to change the name of the auth site displayed
 # in page titles and the site header.
 SITE_NAME = "testauth"

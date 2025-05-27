@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "allianceauth.theme.darkly",
     "allianceauth.theme.flatly",
     "allianceauth.theme.materia",
+    "sri",
 ]
 
 SECRET_KEY = "wow I'm a really bad default secret key"
