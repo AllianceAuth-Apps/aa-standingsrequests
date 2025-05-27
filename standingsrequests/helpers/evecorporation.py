@@ -81,11 +81,13 @@ class EveCorporation:
         )
 
         return sum(
-            1
-            if StandingRequest.has_required_scopes_for_request(
-                character=character, user=user, quick_check=quick_check
+            (
+                1
+                if StandingRequest.has_required_scopes_for_request(
+                    character=character, user=user, quick_check=quick_check
+                )
+                else 0
             )
-            else 0
             for character in corporation_members
         )
 

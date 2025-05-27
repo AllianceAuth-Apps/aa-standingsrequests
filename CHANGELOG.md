@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.4.1] - 2025-05-27
+
+## Fixed
+
+- Doesn't error out when the AA has users without a main character (!12) - Thanks to @r0kym for the contribution!
+
 ## [1.4.0] - 2023-12-12
 
 ## Changed
