@@ -51,7 +51,7 @@ test-py311-dj52:
   script:
     - tox -e py311-django52
     - bash <(curl -s https://codecov.io/bash)
-    -
+
 test-py312-dj42:
   extends: .test
   image: python:3.12-bookworm
