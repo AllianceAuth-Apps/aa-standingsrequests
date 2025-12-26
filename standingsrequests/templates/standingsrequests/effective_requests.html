@@ -3,7 +3,7 @@
 {% load static %}
 {% load i18n %}
 
-{% block details %}
+{% block content %}
     <h2>{% translate "Effective Requests" %}</h2>
     {% include "standingsrequests/partials/tbl_effective_requests.html" %}
     <p class="text-muted">
@@ -14,8 +14,8 @@
 {% endblock details %}
 
 {% block extra_javascript %}
-    {% include 'bundles/datatables-js.html' %}
-    {% include 'bundles/filterdropdown-js.html' %}
+    {% include 'bundles/datatables-js-bs5.html' %}
+    {% include 'bundles/filterdropdown-js-bs5.html' %}
     <script type="application/javascript">
         $(document).ready(function () {
             $('#tab-effective-requests').DataTable({
@@ -84,7 +84,8 @@
                         }
                     ],
                     autoSize: false,
-                    bootstrap: true
+                    bootstrap: true,
+                    bootstrap_version: 5,
                 },
             });
         });
@@ -93,5 +94,5 @@
 
 {% block extra_css %}
     {{ block.super }}
-    {% include 'bundles/datatables-css.html' %}
+    {% include 'bundles/datatables-css-bs5.html' %}
 {% endblock extra_css %}

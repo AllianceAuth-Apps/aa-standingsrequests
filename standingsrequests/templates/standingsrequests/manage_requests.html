@@ -3,12 +3,12 @@
 {% load static %}
 {% load i18n %}
 
-{% block details %}
+{% block content %}
     <h2>{% translate "Manage Requests" %}</h2>
 
-    <ul id="myTabs" class="nav nav-tabs" role="tablist">
-        <li role="presentation">
-            <a href="#tab-requests" aria-controls="tab-requests" role="tab" data-toggle="tab">
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active" href="#tab-requests" aria-controls="tab-requests" role="tab" data-bs-toggle="tab">
                 {% translate "Open Requests" %}
                 {% if requests_count > 0 %}
                     &nbsp;<span class="badge badge-nav alert-info">
@@ -17,8 +17,8 @@
                 {% endif %}
             </a>
         </li>
-        <li role="presentation">
-            <a href="#tab-revocations" aria-controls="tab-revocations" role="tab" data-toggle="tab">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" href="#tab-revocations" aria-controls="tab-revocations" role="tab" data-bs-toggle="tab">
                 {% translate "Open Revocations" %}
                 {% if revocations_count > 0 %}
                     &nbsp;<span class="badge badge-nav alert-info">
@@ -27,67 +27,65 @@
                 {% endif %}
             </a>
         </li>
-        <li role="presentation">
-            <a href="#tab-effective-requests" aria-controls="tab-effective-requests" role="tab" data-toggle="tab">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" href="#tab-effective-requests" aria-controls="tab-effective-requests" role="tab" data-bs-toggle="tab">
                 {% translate "Effective Requests" %}
             </a>
         </li>
     </ul>
 
-    <div class="panel panel-default panel-tabs">
-        <div class="panel-body">
-            <div class="tab-content">
+    <div class="card card-default card-tabs border-0">
+        <div class="card-body tab-content">
 
-                <div role="tabpanel" class="tab-pane" id="tab-requests">
-                    <div
-                        hx-get="{% url 'manage_requests_list' %}"
-                        hx-trigger="load">
-                        {% include "standingsrequests/partials/spinner.html" %}
-                    </div>
-                    <p class="text-muted">
-                        {% blocktranslate with organization_name=organization.name %}
-                            Standing requests with pending action for {{ organization_name }}
-                        {% endblocktranslate %}
-                    </p>
+            <div role="tabpanel" class="tab-pane show active" id="tab-requests">
+                <div
+                    hx-get="{% url 'manage_requests_list' %}"
+                    hx-trigger="load">
+                    {% include "standingsrequests/partials/spinner.html" %}
                 </div>
-
-                <div role="tabpanel" class="tab-pane" id="tab-revocations">
-                    <div
-                        hx-get="{% url 'manage_revocations_list' %}"
-                        hx-trigger="load">
-                        {% include "standingsrequests/partials/spinner.html" %}
-                    </div>
-                    <p class="text-muted">
-                        {% blocktranslate with organization_name=organization.name %}
-                            Standing revocations with pending action for {{ organization_name }}
-                        {% endblocktranslate %}
-                    </p>
-                </div>
-
-                <div role="tabpanel" class="tab-pane" id="tab-effective-requests">
-                    {% include "standingsrequests/partials/tbl_effective_requests.html" %}
-                    <p class="text-muted">
-                        {% blocktranslate with organization_name=organization.name %}
-                            Currently effective standing requests for {{ organization_name }} • This data is cached
-                        {% endblocktranslate %}
-                    </p>
-                </div>
-
-
+                <p class="text-muted">
+                    {% blocktranslate with organization_name=organization.name %}
+                        Standing requests with pending action for {{ organization_name }}
+                    {% endblocktranslate %}
+                </p>
             </div>
+
+            <div role="tabpanel" class="tab-pane" id="tab-revocations">
+                <div
+                    hx-get="{% url 'manage_revocations_list' %}"
+                    hx-trigger="load">
+                    {% include "standingsrequests/partials/spinner.html" %}
+                </div>
+                <p class="text-muted">
+                    {% blocktranslate with organization_name=organization.name %}
+                        Standing revocations with pending action for {{ organization_name }}
+                    {% endblocktranslate %}
+                </p>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="tab-effective-requests">
+                {% include "standingsrequests/partials/tbl_effective_requests.html" %}
+                <p class="text-muted">
+                    {% blocktranslate with organization_name=organization.name %}
+                        Currently effective standing requests for {{ organization_name }} • This data is cached
+                    {% endblocktranslate %}
+                </p>
+            </div>
+
+
         </div>
     </div>
-{% endblock details %}
+{% endblock content %}
 
 {% block extra_css %}
     {{ block.super }}
-    {% include 'bundles/datatables-css.html' %}
+    {% include 'bundles/datatables-css-bs5.html' %}
     <link rel="stylesheet" href="{% static 'standingsrequests/css/manage.css' %}" type="text/css" media="screen">
 {% endblock extra_css %}
 
 {% block extra_javascript %}
     {% include "standingsrequests/bundles/htmx.html" %}
-    {% include 'bundles/datatables-js.html' %}
+    {% include 'bundles/datatables-js-bs5.html' %}
     {% include 'bundles/filterdropdown-js.html' %}
     {% include "standingsrequests/bundles/helper-js.html" %}
     <script type="application/javascript">
@@ -158,7 +156,8 @@
                         }
                     ],
                     autoSize: false,
-                    bootstrap: true
+                    bootstrap: true,
+                    bootstrap_version: 5
                 },
             });
             rememberLastTab('standingsrequests', 'manage-requests', '#tab-requests');

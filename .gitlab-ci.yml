@@ -24,37 +24,46 @@ pre-commit-check:
     - python -V
     - pip install tox
 
-test-py38-dj40:
-  extends: .test
-  image: python:3.8-bookworm
-  script:
-    - tox -e py38-django40
-
-test-py39-dj40:
-  extends: .test
-  image: python:3.9-bookworm
-  script:
-    - tox -e py39-django40
-
-test-py310-dj40:
+test-py310-dj42:
   extends: .test
   image: python:3.10-bookworm
   script:
-    - tox -e py310-django40
+    - tox -e py310-django42
     - bash <(curl -s https://codecov.io/bash)
 
-test-py311-dj40:
+test-py310-dj52:
   extends: .test
-  image: python:3.11-bookworm
+  image: python:3.10-bookworm
   script:
-  - tox -e py311-django40
-  - bash <(curl -s https://codecov.io/bash)
+    - tox -e py310-django52
+    - bash <(curl -s https://codecov.io/bash)
 
 test-py311-dj42:
   extends: .test
   image: python:3.11-bookworm
   script:
-  - tox -e py311-django42
+    - tox -e py311-django42
+    - bash <(curl -s https://codecov.io/bash)
+
+test-py311-dj52:
+  extends: .test
+  image: python:3.11-bookworm
+  script:
+    - tox -e py311-django52
+    - bash <(curl -s https://codecov.io/bash)
+    -
+test-py312-dj42:
+  extends: .test
+  image: python:3.12-bookworm
+  script:
+  - tox -e py312-django42
+  - bash <(curl -s https://codecov.io/bash)
+
+test-py312-dj52:
+  extends: .test
+  image: python:3.12-bookworm
+  script:
+  - tox -e py312-django52
   - bash <(curl -s https://codecov.io/bash)
 
 deploy-pypi:
