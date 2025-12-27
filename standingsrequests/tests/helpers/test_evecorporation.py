@@ -165,9 +165,10 @@ class TestGetManyById(TestCase):
             return EveCorporation(**obj)
 
         # when
-        with patch(
-            EVECORPORATION_PATH + ".EveCorporation.get_by_id", new=my_get_by_id
-        ), patch(EVECORPORATION_PATH + ".esi") as _:
+        with (
+            patch(EVECORPORATION_PATH + ".EveCorporation.get_by_id", new=my_get_by_id),
+            patch(EVECORPORATION_PATH + ".esi") as _,
+        ):
             result = EveCorporation.get_many_by_id([2001, 2002, 2987])
 
         # then

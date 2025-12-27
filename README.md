@@ -40,11 +40,11 @@ Here are some example screenshots:
 
 ### Requesting standings for a character
 
-![image_1](https://i.imgur.com/lVXEVMK.png)
+![image_1](https://i.imgur.com/9IKT2MH.png)
 
 ### Reviewing standings requests
 
-![image_2](https://i.imgur.com/eM1cXya.png)
+![image_2](https://i.imgur.com/0CHPk49.png)
 
 ## Installation
 
