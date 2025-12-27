@@ -22,7 +22,7 @@ Helper functions
         const keyLastTab = `${appID}-${pageID}-rememberLastTab`;
 
         /* remember last activated tab */
-        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
             const lastTab = e.target.attributes.href.value;
             localStorage.setItem(keyLastTab, lastTab);
         })
