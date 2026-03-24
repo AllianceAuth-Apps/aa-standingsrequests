@@ -2,7 +2,7 @@
 {% load static %}
 {% load i18n %}
 
-{% block details %}
+{% block content %}
     <h2>{% translate "My Requests" %}</h2>
     <p class="text-muted">
         {% blocktranslate with organization_name=organization.name %}
@@ -11,46 +11,45 @@
         {% endblocktranslate %}
     </p>
 
-    <ul id="myTabs" class="nav nav-tabs" role="tablist">
-        <li role="presentation" class="active">
-            <a href="#tab-characters" aria-controls="tab-characters" role="tab" data-toggle="tab">
+    <ul class="nav nav-tabs" role="tablist">
+
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" aria-controls="characters" role="tab" data-bs-toggle="tab" data-bs-target="#characters">
                 {% translate "My Characters" %}
-            </a>
+            </button>
         </li>
         {% if corporations_enabled %}
-            <li role="presentation">
-                <a href="#tab-corporations" aria-controls="tab-corporations" role="tab" data-toggle="tab">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" aria-controls="corporations" role="tab" data-bs-toggle="tab" data-bs-target="#corporations">
                     {% translate "My Corporations" %}
-                </a>
+                </button>
             </li>
         {% endif %}
     </ul>
 
-    <div class="panel panel-default panel-tabs">
-        <div class="panel-body">
-            <div class="tab-content">
+    <div class="card card-default card-tabs border-0">
+        <div class="card-body tab-content">
 
-                <div role="tabpanel" class="tab-pane active" id="tab-characters">
-                    <div hx-get="{% url 'standingsrequests:request_characters' %}" hx-trigger="load">
+            <div class="tab-pane show active" id="characters" role="tabpanel">
+                <div hx-get="{% url 'standingsrequests:request_characters' %}" hx-trigger="load">
+                    {% include "standingsrequests/partials/spinner.html" %}
+                </div>
+            </div>
+
+            {% if corporations_enabled %}
+                <div class="tab-pane" id="corporations" role="tabpanel">
+                    <div hx-get="{% url 'standingsrequests:request_corporations' %}" hx-trigger="load">
                         {% include "standingsrequests/partials/spinner.html" %}
                     </div>
                 </div>
-
-                {% if corporations_enabled %}
-                    <div role="tabpanel" class="tab-pane" id="tab-corporations">
-                        <div hx-get="{% url 'standingsrequests:request_corporations' %}" hx-trigger="load">
-                            {% include "standingsrequests/partials/spinner.html" %}
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
+            {% endif %}
         </div>
     </div>
 
     <br>
-    <div class="panel panel-default">
-        <div class="panel-heading">{% translate "Icon Legend" %}</div>
-        <div class="panel-body">
+    <div class="card card-default">
+        <h5 class="card-title">{% translate "Icon Legend" %}</h5>
+        <div class="card-body">
             <table class="table">
                 <tr>
                     <td>

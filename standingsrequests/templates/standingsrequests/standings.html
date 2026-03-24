@@ -2,35 +2,33 @@
 {% load static %}
 {% load i18n %}
 
-{% block details %}
+{% block content %}
 
     <h2>{{ operation_mode|capfirst }} {% translate "Standings" %}</h2>
 
-    <ul id="myTabs" class="nav nav-tabs" role="tablist">
-        <li role="presentation" class="active">
-            <a href="#tab-characters" aria-controls="tab-characters" role="tab" data-toggle="tab">
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="nav-item">
+            <a class="nav-link active" href="#tab-characters" aria-controls="tab-characters" role="tab" data-bs-toggle="tab">
                 {% translate "Characters" %}
             </a>
         </li>
-        <li role="presentation">
-            <a href="#tab-corporations" aria-controls="tab-corporations" role="tab" data-toggle="tab">
+        <li role="presentation" class="nav-item">
+            <a class="nav-link" href="#tab-corporations" aria-controls="tab-corporations" role="tab" data-bs-toggle="tab">
                 {% translate "Corporations" %}
             </a>
         </li>
-        <li role="presentation">
-            <a href="#tab-alliances" aria-controls="tab-alliances" role="tab" data-toggle="tab">
+        <li role="presentation" class="nav-item">
+            <a class="nav-link" href="#tab-alliances" aria-controls="tab-alliances" role="tab" data-bs-toggle="tab">
                 {% translate "Alliances" %}
             </a>
         </li>
     </ul>
 
-    <div class="panel panel-default panel-tabs">
-        <div class="panel-body">
-            <div class="tab-content">
+    <div class="card card-default card-tabs border-0">
+        <div class="panel-body tab-content">
                 {% include "standingsrequests/partials/tab_character_standings.html" %}
                 {% include "standingsrequests/partials/tab_corporation_standings.html" %}
                 {% include "standingsrequests/partials/tab_alliance_standings.html" %}
-            </div>
         </div>
     </div>
     <p class="text-muted">
@@ -41,10 +39,10 @@
     </p>
     <!-- transfer data to javascript -->
     {{ show_mains|json_script:"show-mains-data" }}
-{% endblock details %}
+{% endblock content %}
 
 {% block extra_javascript %}
-    {% include 'bundles/datatables-js.html' %}
+    {% include 'bundles/datatables-js-bs5.html' %}
     {% include 'bundles/filterdropdown-js.html' %}
     {% include "standingsrequests/bundles/helper-js.html" %}
     <script type="application/javascript">
@@ -156,7 +154,8 @@
                 filterDropDown: {
                     columns: filterDropDownColumns,
                     autoSize: false,
-                    bootstrap: true
+                    bootstrap: true,
+                    bootstrap_version: 5
                 },
             });
 
@@ -231,7 +230,8 @@
                 filterDropDown: {
                     columns: filterDropDownColumns,
                     autoSize: false,
-                    bootstrap: true
+                    bootstrap: true,
+                    bootstrap_version: 5
                 },
             });
             $('#tbl-alliance-standings').DataTable({
@@ -263,7 +263,8 @@
                         }
                     ],
                     autoSize: false,
-                    bootstrap: true
+                    bootstrap: true,
+                    bootstrap_version: 5
                 },
             });
             rememberLastTab('standingsrequests', 'standings', '#tab-characters');
@@ -274,5 +275,5 @@
 
 {% block extra_css %}
     {{ block.super }}
-    {% include 'bundles/datatables-css.html' %}
+    {% include 'bundles/datatables-css-bs5.html' %}
 {% endblock extra_css %}

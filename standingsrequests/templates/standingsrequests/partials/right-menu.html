@@ -1,0 +1,16 @@
+{% load i18n %}
+{% load navactive %}
+
+{% if perms.standingsrequests.affect_standings %}
+    <li class="nav-item">
+        <a class="nav-link {% navactive request 'standingsrequests:view_auth_page' %}" href="{% url 'standingsrequests:view_auth_page' %}">
+            <span class="btn btn-secondary">
+                {% if operation_mode == "corporation" %}
+                    {% translate "Setup Corporation Token" %}
+                {% else %}
+                    {% translate "Setup Alliance Token" %}
+                {% endif %}
+            </span>
+        </a>
+    </li>
+{% endif %}
