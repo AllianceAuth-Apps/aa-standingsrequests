@@ -545,10 +545,9 @@ class TestRequestCorporationStanding(TestCase):
             mock_get_corp_by_id.return_value = EveCorporation(
                 **get_my_test_data()["EveCorporationInfo"]["2102"]
             )
-            with (
-                patch(VIEWS_PATH + ".messages.warning") as mock_message,
-                patch(MANAGERS_PATH + ".esi") as mock_esi,
-            ):
+            with patch(VIEWS_PATH + ".messages.warning") as mock_message, patch(
+                MANAGERS_PATH + ".esi"
+            ) as mock_esi:
                 mock_esi.client.Character.post_characters_affiliation.side_effect = (
                     esi_post_characters_affiliation
                 )
