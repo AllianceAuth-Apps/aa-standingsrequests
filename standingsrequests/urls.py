@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import (
+from standingsrequests.views import (
     admin,
     create_requests,
     effective_requests,

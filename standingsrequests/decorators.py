@@ -7,8 +7,8 @@ from esi.views import select_token, sso_redirect
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .models import StandingRequest
+from standingsrequests import __title__
+from standingsrequests.models import StandingRequest
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 

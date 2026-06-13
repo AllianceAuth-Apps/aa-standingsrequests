@@ -21,15 +21,19 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import chunks
 from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .app_settings import SR_NOTIFICATIONS_ENABLED
-from .constants import CreateCharacterRequestResult, OperationMode
-from .core import app_config
-from .core.contact_types import ContactTypeId
-from .providers import esi
+from standingsrequests import __title__
+from standingsrequests.app_settings import SR_NOTIFICATIONS_ENABLED
+from standingsrequests.constants import CreateCharacterRequestResult, OperationMode
+from standingsrequests.core import app_config
+from standingsrequests.core.contact_types import ContactTypeId
+from standingsrequests.providers import esi
 
 if TYPE_CHECKING:
-    from .models import AbstractStandingsRequest, ContactSet, StandingRequest
+    from standingsrequests.models import (
+        AbstractStandingsRequest,
+        ContactSet,
+        StandingRequest,
+    )
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -150,7 +154,7 @@ class ContactSetManager(models.Manager):
         contact_set: ContactSet instance
         labels: Label dictionary
         """
-        from .models import ContactLabel
+        from standingsrequests.models import ContactLabel
 
         contact_labels = [
             ContactLabel(label_id=label.id, name=label.name, contact_set=contact_set)
@@ -165,7 +169,7 @@ class ContactSetManager(models.Manager):
         :param contact_set: Django ContactSet to add contacts to
         :param contacts: List of _ContactsWrapper.Contact to add
         """
-        from .models import Contact
+        from standingsrequests.models import Contact
 
         for contact in contacts:
             eve_entity, _ = EveEntity.objects.get_or_create_esi(id=contact.id)
@@ -219,7 +223,7 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
 
     def process_requests(self) -> None:
         """Process all the Standing requests/revocation objects"""
-        from .models import AbstractStandingsRequest
+        from standingsrequests.models import AbstractStandingsRequest
 
         if self.model is AbstractStandingsRequest:
             raise TypeError("Can not be called from abstract objects")
@@ -313,7 +317,7 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
                 )
 
     def _removing_effective_standing(self, standing_request: AbstractStandingsRequest):
-        from .models import StandingRevocation
+        from standingsrequests.models import StandingRevocation
 
         logger.info(
             "Standing for %d is marked as effective but is not "
@@ -323,7 +327,7 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
         standing_request.delete(reason=StandingRevocation.Reason.REVOKED_IN_GAME)
 
     def _remove_standing_request_after_revocation(self, standing_request):
-        from .models import StandingRequest, StandingRevocation
+        from standingsrequests.models import StandingRequest, StandingRevocation
 
         StandingRequest.objects.filter(contact_id=standing_request.contact_id).delete()
         StandingRevocation.objects.filter(
@@ -385,7 +389,7 @@ class StandingRequestManager(AbstractStandingsRequestManager):
 
         returns the number of invalid requests
         """
-        from .models import StandingRevocation
+        from standingsrequests.models import StandingRevocation
 
         logger.debug("Validating standings requests")
         invalid_count = 0
@@ -434,7 +438,11 @@ class StandingRequestManager(AbstractStandingsRequestManager):
         self, user: User, character: EveCharacter
     ) -> CreateCharacterRequestResult:
         """Create new character standings request for user if possible."""
-        from .models import ContactSet, RequestLogEntry, StandingRevocation
+        from standingsrequests.models import (
+            ContactSet,
+            RequestLogEntry,
+            StandingRevocation,
+        )
 
         try:
             if character.character_ownership.user != user:
@@ -481,7 +489,7 @@ class StandingRequestManager(AbstractStandingsRequestManager):
 
     def create_corporation_request(self, user: User, corporation_id: int) -> bool:
         """Create new corporation standings request for user if possible."""
-        from .models import StandingRevocation
+        from standingsrequests.models import StandingRevocation
 
         if self.has_pending_request(
             corporation_id
@@ -542,7 +550,7 @@ class StandingRevocationManager(AbstractStandingsRequestManager):
 
         Returns the created StandingRevocation instance
         """
-        from .models import AbstractStandingsRequest
+        from standingsrequests.models import AbstractStandingsRequest
 
         logger.debug(
             "Adding new standings revocation for contact %d type %s",
@@ -597,7 +605,11 @@ class CharacterAffiliationManager(models.Manager):
                 self._store_affiliations(affiliations)
 
     def _gather_character_ids(self) -> list:
-        from .models import ContactSet, StandingRequest, StandingRevocation
+        from standingsrequests.models import (
+            ContactSet,
+            StandingRequest,
+            StandingRevocation,
+        )
 
         try:
             contact_set = ContactSet.objects.latest()
@@ -687,7 +699,7 @@ class CharacterAffiliationManager(models.Manager):
 
 class CorporationDetailsManager(models.Manager):
     def corporation_ids_from_contacts(self) -> set:
-        from .models import Contact
+        from standingsrequests.models import Contact
 
         contact_corporation_ids = set(
             Contact.objects.filter_corporations().values_list(
@@ -756,7 +768,7 @@ class RequestLogEntryManagerBase(models.Manager):
     def create_from_standing_request(
         self, standing_request: AbstractStandingsRequest, action, action_by: User
     ) -> Optional[Any]:
-        from .models import FrozenAlt, FrozenAuthUser, RequestLogEntry
+        from standingsrequests.models import FrozenAlt, FrozenAuthUser, RequestLogEntry
 
         requested_for: FrozenAlt = (
             FrozenAlt.objects.get_or_create_from_standing_request(standing_request)[0]

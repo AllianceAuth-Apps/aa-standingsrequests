@@ -25,9 +25,11 @@ from standingsrequests.models import (
     StandingRequest,
     StandingRevocation,
 )
-
-from .testdata.entity_type_ids import CHARACTER_TYPE_ID, CORPORATION_TYPE_ID
-from .testdata.my_test_data import (
+from standingsrequests.tests.testdata.entity_type_ids import (
+    CHARACTER_TYPE_ID,
+    CORPORATION_TYPE_ID,
+)
+from standingsrequests.tests.testdata.my_test_data import (
     TEST_STANDINGS_API_CHARID,
     TEST_STANDINGS_API_CHARNAME,
     create_contacts_set,

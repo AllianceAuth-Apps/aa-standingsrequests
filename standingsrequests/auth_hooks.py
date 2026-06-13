@@ -5,9 +5,9 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth import hooks
 from allianceauth.services.hooks import MenuItemHook, ServicesHook, UrlHook
 
-from . import __title__, urls
-from .models import StandingRequest, StandingRevocation
-from .urls import urlpatterns
+from standingsrequests import __title__, urls
+from standingsrequests.models import StandingRequest, StandingRevocation
+from standingsrequests.urls import urlpatterns
 
 logger = logging.getLogger(__name__)
 

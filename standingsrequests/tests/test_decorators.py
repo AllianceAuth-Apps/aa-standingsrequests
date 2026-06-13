@@ -8,8 +8,7 @@ from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.testing import _generate_token, _store_as_Token, generate_invalid_pk
 
 from standingsrequests.decorators import token_required_by_state
-
-from .testdata.my_test_data import create_eve_objects
+from standingsrequests.tests.testdata.my_test_data import create_eve_objects
 
 MODULE_PATH = "standingsrequests.decorators"
 PATH_MODELS = "standingsrequests.models"

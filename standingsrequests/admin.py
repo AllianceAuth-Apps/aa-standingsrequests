@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.db.models import Count
 from eveuniverse.models import EveEntity
 
-from .models import (
+from standingsrequests.models import (
     AbstractStandingsRequest,
     ContactSet,
     RequestLogEntry,

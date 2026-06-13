@@ -17,19 +17,18 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import default_if_none
 from app_utils.logging import LoggerAddTag
 
+from standingsrequests import __title__
+from standingsrequests.app_settings import SR_REQUIRED_SCOPES, SR_STANDING_TIMEOUT_HOURS
+from standingsrequests.constants import OperationMode
+from standingsrequests.core import app_config
+from standingsrequests.core.contact_types import ContactTypeId
+from standingsrequests.helpers.evecorporation import EveCorporation
 from standingsrequests.helpers.models import (
     FrozenModelMixin,
     GatherEntityIdsMixin,
     get_or_create_sentinel_user,
 )
-
-from . import __title__
-from .app_settings import SR_REQUIRED_SCOPES, SR_STANDING_TIMEOUT_HOURS
-from .constants import OperationMode
-from .core import app_config
-from .core.contact_types import ContactTypeId
-from .helpers.evecorporation import EveCorporation
-from .managers import (
+from standingsrequests.managers import (
     AbstractStandingsRequestManager,
     CharacterAffiliationManager,
     ContactQuerySet,

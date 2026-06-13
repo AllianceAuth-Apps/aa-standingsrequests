@@ -11,10 +11,13 @@ from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .app_settings import SR_STANDINGS_STALE_HOURS, SR_SYNC_BLUE_ALTS_ENABLED
-from .core import app_config
-from .models import (
+from standingsrequests import __title__
+from standingsrequests.app_settings import (
+    SR_STANDINGS_STALE_HOURS,
+    SR_SYNC_BLUE_ALTS_ENABLED,
+)
+from standingsrequests.core import app_config
+from standingsrequests.models import (
     CharacterAffiliation,
     ContactSet,
     CorporationDetails,
