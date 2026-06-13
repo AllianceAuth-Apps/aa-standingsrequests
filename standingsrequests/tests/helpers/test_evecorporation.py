@@ -1,7 +1,10 @@
+from http import HTTPStatus
 from unittest.mock import patch
 
+import pook
+
 from django.test import TestCase
-from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import EveEntityAllianceFactory
 
 from allianceauth.eveonline.models import EveCharacter
 from app_utils.testing import (
@@ -11,116 +14,223 @@ from app_utils.testing import (
 )
 
 from standingsrequests.helpers.evecorporation import EveCorporation
-from standingsrequests.tests.testdata.my_test_data import (
-    create_eve_objects,
-    esi_get_corporations_corporation_id,
-    get_my_test_data,
+from standingsrequests.tests.helpers_2 import TestCaseWithClearCache
+from standingsrequests.tests.testdata.factories import (
+    EveCorporationFactory,
+    make_esi_url,
 )
+from standingsrequests.tests.testdata.my_test_data import create_eve_objects
 
 EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
 MODELS_PATH = "standingsrequests.models"
 
 
-@patch(EVECORPORATION_PATH + ".cache")
-@patch(EVECORPORATION_PATH + ".esi")
 class TestEveCorporation(NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.corporation = EveCorporation(
-            corporation_id=2001,
+    def test_can_create(self):
+        # given
+        corporation = EveCorporationFactory(
+            corporation_id=98000001,
             corporation_name="Wayne Technologies",
             ticker="WYT",
             ceo_id=1003,
             member_count=3,
-            alliance_id=3001,
+            alliance_id=99000001,
             alliance_name="Wayne Enterprises",
         )
-        EveEntity.objects.create(id=3001, name="Wayne Enterprises", category="alliance")
-        cls.maxDiff = None
+        # when/then
+        self.assertEqual(corporation.corporation_id, 98000001)
+        self.assertEqual(corporation.corporation_name, "Wayne Technologies")
+        self.assertEqual(corporation.ticker, "WYT")
+        self.assertEqual(corporation.member_count, 3)
+        self.assertEqual(corporation.alliance_id, 99000001)
+        self.assertEqual(corporation.alliance_name, "Wayne Enterprises")
 
-    def test_init(self, mock_esi, mock_cache):
-        self.assertEqual(self.corporation.corporation_id, 2001)
-        self.assertEqual(self.corporation.corporation_name, "Wayne Technologies")
-        self.assertEqual(self.corporation.ticker, "WYT")
-        self.assertEqual(self.corporation.member_count, 3)
-        self.assertEqual(self.corporation.alliance_id, 3001)
-        self.assertEqual(self.corporation.alliance_name, "Wayne Enterprises")
+    def test_can_report_wheter_corp_is_npc(self):
+        cases = [
+            (EveCorporationFactory(corporation_id=1000134), True),
+            (EveCorporationFactory(corporation_id=98000001), False),
+        ]
+        for corporation, want in cases:
+            self.assertEqual(corporation.is_npc, want)
 
-    def test_str(self, mock_esi, mock_cache):
-        expected = "Wayne Technologies"
-        self.assertEqual(str(self.corporation), expected)
 
-    def test_get_corp_by_id_not_in_cache(self, mock_esi, mock_cache):
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
+@patch(EVECORPORATION_PATH + ".cache")
+class TestEveCorporation_GetByID(TestCaseWithClearCache):
+    @pook.on
+    def test_get_corp_by_id_not_in_cache(self, mock_cache):
+        # given
+        alliance_id = 99000001
+        alliance_name = "Wayne Enterprises"
+        ceo_id = 90000001
+        corporation_id = 98000001
+        corporation_name = "Wayne Technologies"
+        corporation_ticker = "WYT"
+        member_count = 42
+        EveEntityAllianceFactory(id=alliance_id, name=alliance_name)
+        pook.get(
+            make_esi_url(f"corporations/{corporation_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "alliance_id": alliance_id,
+                "ceo_id": ceo_id,
+                "creator_id": 90000001,
+                "member_count": member_count,
+                "name": corporation_name,
+                "tax_rate": 0,
+                "ticker": corporation_ticker,
+            },
         )
-        expected = self.corporation
         mock_cache.get.return_value = None
 
-        obj = EveCorporation.get_by_id(2001)
-        self.assertEqual(obj, expected)
+        # when
+        got = EveCorporation.get_by_id(corporation_id)
+
+        # then
+        self.assertEqual(got.alliance_id, alliance_id)
+        self.assertEqual(got.alliance_name, alliance_name)
+        self.assertEqual(got.ceo_id, ceo_id)
+        self.assertEqual(got.corporation_id, corporation_id)
+        self.assertEqual(got.corporation_name, corporation_name)
+        self.assertEqual(got.ticker, corporation_ticker)
+        self.assertEqual(got.member_count, member_count)
+
         self.assertTrue(mock_cache.set.called)
 
-    def test_get_corp_by_id_not_in_cache_and_esi_failed(self, mock_esi, mock_cache):
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
+    @pook.on
+    def test_get_corp_by_id_not_in_cache_and_esi_failed(self, mock_cache):
+        # given
+        corporation_id = 98000001
+        pook.get(
+            make_esi_url(f"corporations/{corporation_id}"),
+            reply=HTTPStatus.NOT_FOUND,
+            response_json={"error": "some error"},
         )
         mock_cache.get.return_value = None
 
-        obj = EveCorporation.get_by_id(9876)
+        # when
+        obj = EveCorporation.get_by_id(corporation_id)
+
+        # then
         self.assertIsNone(obj)
 
-    def test_get_corp_by_id_in_cache(self, mock_esi, mock_cache):
-        expected = self.corporation
-        mock_cache.get.return_value = expected
+    @pook.on
+    def test_get_corp_by_id_in_cache(self, mock_cache):
+        # given
+        corporation = EveCorporationFactory()
+        mock_cache.get.return_value = corporation
 
-        obj = EveCorporation.get_by_id(2001)
-        self.assertEqual(obj, expected)
+        # when
+        obj = EveCorporation.get_by_id(corporation.corporation_id)
 
-    def test_get_corp_esi(self, mock_esi, mock_cache):
-        mock_esi.client.Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
+        # then
+        self.assertEqual(obj, corporation)
+
+
+class TestEveCorporation_FetchCorporationFromApi(TestCaseWithClearCache):
+    @pook.on
+    def test_can_fetch_corporation_from_api(self):
+        # given
+        alliance_id = 99000001
+        alliance_name = "Wayne Enterprises"
+        ceo_id = 90000001
+        corporation_id = 98000001
+        corporation_name = "Wayne Technologies"
+        corporation_ticker = "WYT"
+        member_count = 42
+        EveEntityAllianceFactory(id=alliance_id, name=alliance_name)
+        pook.get(
+            make_esi_url(f"corporations/{corporation_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "alliance_id": alliance_id,
+                "ceo_id": ceo_id,
+                "creator_id": 90000001,
+                "member_count": member_count,
+                "name": corporation_name,
+                "tax_rate": 0,
+                "ticker": corporation_ticker,
+            },
         )
-        obj = EveCorporation.fetch_corporation_from_api(2102)
-        self.assertEqual(obj.corporation_id, 2102)
-        self.assertEqual(obj.corporation_name, "Lexcorp")
-        self.assertEqual(obj.ticker, "LEX")
-        self.assertEqual(obj.member_count, 2)
-        self.assertIsNone(obj.alliance_id)
 
-    def test_normal_corp_is_not_npc(self, mock_esi, mock_cache):
-        normal_corp = EveCorporation(
-            corporation_id=98397665,
-            corporation_name="Rancid Rabid Rabis",
-            ticker="RANCI",
-            member_count=3,
-            alliance_id=99005502,
-            alliance_name="Same Great Taste",
+        # when
+        got = EveCorporation.fetch_corporation_from_api(corporation_id)
+
+        # then
+        self.assertEqual(got.alliance_id, alliance_id)
+        self.assertEqual(got.alliance_name, alliance_name)
+        self.assertEqual(got.ceo_id, ceo_id)
+        self.assertEqual(got.corporation_id, corporation_id)
+        self.assertEqual(got.corporation_name, corporation_name)
+        self.assertEqual(got.ticker, corporation_ticker)
+        self.assertEqual(got.member_count, member_count)
+
+    @pook.on
+    def test_should_return_none_when_request_failed(self):
+        # given
+        corporation_id = 98000001
+        pook.get(
+            make_esi_url(f"corporations/{corporation_id}"),
+            reply=HTTPStatus.NOT_FOUND,
+            response_json={"error": "some error"},
         )
-        self.assertFalse(normal_corp.is_npc)
 
-    def test_npc_corp_is_npc(self, mock_esi, mock_cache):
-        normal_corp = EveCorporation(
-            corporation_id=1000134,
-            corporation_name="Blood Raiders",
-            ticker="TBR",
-            member_count=22,
+        # when
+        obj = EveCorporation.get_by_id(corporation_id)
+
+        # then
+        self.assertIsNone(obj)
+
+
+class TestEveCorporation_GetManyById(TestCaseWithClearCache):
+    @pook.on
+    def test_should_return_corporations(self):
+        # given
+        corporation_id_1 = 90000001
+        corporation_id_2 = 90000002
+        pook.get(
+            make_esi_url(f"corporations/{corporation_id_1}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "member_count": 1,
+                "name": "corp #90000001",
+                "tax_rate": 0,
+                "ticker": "string",
+            },
         )
-        self.assertTrue(normal_corp.is_npc)
-
-    def test_corp_without_members(self, mock_esi, mock_cache):
-        normal_corp = EveCorporation(
-            corporation_id=98397665,
-            corporation_name="Rancid Rabid Rabis",
-            ticker="RANCI",
+        pook.get(
+            make_esi_url(f"corporations/{corporation_id_2}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000002,
+                "creator_id": 90000002,
+                "member_count": 1,
+                "name": "corp 90000002",
+                "tax_rate": 0,
+                "ticker": "string",
+            },
         )
-        self.assertIsNone(normal_corp.alliance_name)
+        pook.get(
+            make_esi_url("status"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "players": 42,
+                "server_version": "string",
+                "start_time": "2019-08-24T14:15:22Z",
+            },
+        )
+
+        # when
+        result = EveCorporation.get_many_by_id([corporation_id_1, corporation_id_2])
+
+        # then
+        got = {obj.corporation_id for obj in result}
+        self.assertSetEqual(got, {corporation_id_1, corporation_id_2})
+        self.assertTrue(pook.isdone())
 
 
-class TestMemberTokensCountForUser(TestCase):
+class TestEveCorporation_MemberTokensCountForUser(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -146,30 +256,3 @@ class TestMemberTokensCountForUser(TestCase):
 
         # then
         self.assertEqual(result, 2)
-
-
-class TestGetManyById(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        create_eve_objects()
-        cls.corporations: dict = get_my_test_data()["EveCorporationInfo"]
-
-    def test_should_return_corporations(self):
-        def my_get_by_id(corporation_id, *args, **kwargs):
-            try:
-                obj = self.corporations[str(corporation_id)]
-            except KeyError:
-                return None
-
-            return EveCorporation(**obj)
-
-        # when
-        with patch(
-            EVECORPORATION_PATH + ".EveCorporation.get_by_id", new=my_get_by_id
-        ), patch(EVECORPORATION_PATH + ".esi") as _:
-            result = EveCorporation.get_many_by_id([2001, 2002, 2987])
-
-        # then
-        corporations = {obj.corporation_id: obj for obj in result}
-        self.assertSetEqual(set(corporations.keys()), {2001, 2002})

@@ -1,15 +1,21 @@
 from datetime import timedelta
+from http import HTTPStatus
 from unittest.mock import patch
 
-from bravado.exception import HTTPError
+import pook
 
 from django.test import TestCase, override_settings
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+    EveEntityCorporationFactory,
+    EveEntityFactionFactory,
+)
 
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
-from app_utils.esi_testing import BravadoResponseStub
 from app_utils.testing import NoSocketsTestCase, add_character_to_user, create_fake_user
 
 from standingsrequests.core import app_config
@@ -25,9 +31,20 @@ from standingsrequests.models import (
     StandingRequest,
     StandingRevocation,
 )
+from standingsrequests.tests.helpers_2 import TestCaseWithClearCache
 from standingsrequests.tests.testdata.entity_type_ids import (
     CHARACTER_TYPE_ID,
     CORPORATION_TYPE_ID,
+)
+from standingsrequests.tests.testdata.factories import (
+    CharacterAffiliationFactory,
+    ContactCharacterFactory,
+    ContactSetFactory,
+    StandingRequestCharacterFactory,
+    StandingRevocationCharacterFactory,
+    UserMainApproverFactory,
+    UserMainRequestorFactory,
+    make_esi_url,
 )
 from standingsrequests.tests.testdata.my_test_data import (
     TEST_STANDINGS_API_CHARID,
@@ -37,15 +54,12 @@ from standingsrequests.tests.testdata.my_test_data import (
     create_standings_char,
     esi_get_alliances_alliance_id_contacts,
     esi_get_alliances_alliance_id_contacts_labels,
-    esi_get_corporations_corporation_id,
-    esi_post_characters_affiliation,
     load_eve_entities,
 )
 
 CORE_PATH = "standingsrequests.core"
 MANAGERS_PATH = "standingsrequests.managers"
 MODELS_PATH = "standingsrequests.models"
-TEST_USER_NAME = "Peter Parker"
 
 
 class TestContactSetManager(NoSocketsTestCase):
@@ -464,79 +478,240 @@ class TestStandingsRevocationManager(TestCase):
         self.assertTrue(my_revocation.is_effective)
 
 
-@patch(MANAGERS_PATH + ".esi")
-class TestCharacterAffiliationsManager(NoSocketsTestCase):
+class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user_manager = AuthUtils.create_user("Mike Manager")
-        cls.user_requestor = AuthUtils.create_user("Roger Requestor")
+        cls.user_manager = UserMainApproverFactory()
+        cls.user_requestor = UserMainRequestorFactory()
 
-    def test_should_create_new_assocs(self, mock_esi):
+    @pook.on
+    def test_should_create_new_for_contacts_minimal(self):
         # given
-        mock_esi.client.Character.post_characters_affiliation.side_effect = (
-            esi_post_characters_affiliation
+        cs = ContactSetFactory()
+        contact = ContactCharacterFactory(contact_set=cs)
+        corporation = EveEntityCorporationFactory()
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "character_id": contact.eve_entity.id,
+                    "corporation_id": corporation.id,
+                }
+            ],
         )
-        create_contacts_set(include_assoc=False)
-        StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1002,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-        )
+
         # when
         CharacterAffiliation.objects.update_from_esi()
+
         # then
-        existing_objects = set(
-            CharacterAffiliation.objects.values_list("character_id", flat=True)
-        )
-        self.assertSetEqual(
-            existing_objects, {1001, 1002, 1003, 1004, 1005, 1006, 1008, 1009, 1010}
+        self.assertEqual(CharacterAffiliation.objects.count(), 1)
+        obj: CharacterAffiliation = CharacterAffiliation.objects.first()
+        self.assertEqual(obj.character, contact.eve_entity)
+        self.assertEqual(obj.corporation, corporation)
+        self.assertIsNone(obj.alliance)
+        self.assertIsNone(obj.faction)
+        self.assertIsNone(obj.eve_character)
+
+    @pook.on
+    def test_should_create_new_for_contacts_and_requests_and_revocations(self):
+        # given
+        cs = ContactSetFactory()
+        contact = ContactCharacterFactory(contact_set=cs)
+        corporation_ct = EveEntityCorporationFactory()
+        alliance_ct = EveEntityAllianceFactory()
+        faction_ct = EveEntityFactionFactory()
+
+        rq = StandingRequestCharacterFactory()
+        EveEntityCharacterFactory(id=rq.contact_id)
+        corporation_rq = EveEntityCorporationFactory()
+        alliance_rq = EveEntityAllianceFactory()
+        faction_rq = EveEntityFactionFactory()
+
+        rv = StandingRevocationCharacterFactory()
+        EveEntityCharacterFactory(id=rv.contact_id)
+        corporation_rv = EveEntityCorporationFactory()
+        alliance_rv = EveEntityAllianceFactory()
+        faction_rv = EveEntityFactionFactory()
+
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "alliance_id": alliance_ct.id,
+                    "character_id": contact.eve_entity.id,
+                    "corporation_id": corporation_ct.id,
+                    "faction_id": faction_ct.id,
+                },
+                {
+                    "alliance_id": alliance_rq.id,
+                    "character_id": rq.contact_id,
+                    "corporation_id": corporation_rq.id,
+                    "faction_id": faction_rq.id,
+                },
+                {
+                    "alliance_id": alliance_rv.id,
+                    "character_id": rv.contact_id,
+                    "corporation_id": corporation_rv.id,
+                    "faction_id": faction_rv.id,
+                },
+            ],
         )
 
-    def test_should_update_existing_assocs(self, mock_esi):
-        # given
-        mock_esi.client.Character.post_characters_affiliation.side_effect = (
-            esi_post_characters_affiliation
-        )
-        create_contacts_set(include_assoc=True)
-        assoc = CharacterAffiliation.objects.get(character_id=1001)
-        assoc.corporation = EveEntity.objects.get(id=2003)
-        assoc.save()
         # when
         CharacterAffiliation.objects.update_from_esi()
+
         # then
-        existing_objects = set(
-            CharacterAffiliation.objects.values_list("character_id", flat=True)
+        self.assertEqual(CharacterAffiliation.objects.count(), 3)
+        obj: CharacterAffiliation = CharacterAffiliation.objects.get(
+            character__id=contact.eve_entity.id
         )
-        self.assertSetEqual(
-            existing_objects,
-            {1001, 1002, 1003, 1004, 1005, 1006, 1008, 1009, 1010},
-        )
-        assoc.refresh_from_db()
-        self.assertEqual(assoc.corporation_id, 2001)
+        self.assertEqual(obj.corporation, corporation_ct)
+        self.assertEqual(obj.alliance, alliance_ct)
+        self.assertEqual(obj.faction, faction_ct)
 
-    def test_should_handle_exception_from_api(self, mock_esi):
-        # given
-        mock_esi.client.Character.post_characters_affiliation.side_effect = HTTPError(
-            BravadoResponseStub(500, reason="Test exception")
+        obj: CharacterAffiliation = CharacterAffiliation.objects.get(
+            character__id=rq.contact_id
         )
-        create_contacts_set(include_assoc=False)
+        self.assertEqual(obj.corporation, corporation_rq)
+        self.assertEqual(obj.alliance, alliance_rq)
+        self.assertEqual(obj.faction, faction_rq)
+
+        obj: CharacterAffiliation = CharacterAffiliation.objects.get(
+            character__id=rv.contact_id
+        )
+        self.assertEqual(obj.corporation, corporation_rv)
+        self.assertEqual(obj.alliance, alliance_rv)
+        self.assertEqual(obj.faction, faction_rv)
+
+    @pook.on
+    def test_should_update_existing_for_contacts_minimal(self):
+        # given
+        cs = ContactSetFactory()
+        contact = ContactCharacterFactory(contact_set=cs)
+        ca = CharacterAffiliationFactory(character=contact.eve_entity)
+        corporation = EveEntityCorporationFactory()
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "character_id": contact.eve_entity.id,
+                    "corporation_id": corporation.id,
+                }
+            ],
+        )
+
         # when
         CharacterAffiliation.objects.update_from_esi()
 
-    def test_should_add_new_eve_character_relations(self, mock_esi):
+        # then
+        ca.refresh_from_db()
+        self.assertEqual(ca.character, contact.eve_entity)
+        self.assertEqual(ca.corporation, corporation)
+        self.assertIsNone(ca.alliance)
+        self.assertIsNone(ca.faction)
+        self.assertIsNone(ca.eve_character)
+
+    @pook.on
+    def test_should_update_existing_for_contacts_and_requests_and_revocations(self):
+        # given
+        cs = ContactSetFactory()
+        contact = ContactCharacterFactory(contact_set=cs)
+        ca_ct = CharacterAffiliationFactory(character=contact.eve_entity)
+        corporation_ct = EveEntityCorporationFactory()
+        alliance_ct = EveEntityAllianceFactory()
+        faction_ct = EveEntityFactionFactory()
+
+        rq = StandingRequestCharacterFactory()
+        character_rq = EveEntityCharacterFactory(id=rq.contact_id)
+        ca_rq = CharacterAffiliationFactory(character=character_rq)
+        corporation_rq = EveEntityCorporationFactory()
+        alliance_rq = EveEntityAllianceFactory()
+        faction_rq = EveEntityFactionFactory()
+
+        rv = StandingRevocationCharacterFactory()
+        character_rv = EveEntityCharacterFactory(id=rv.contact_id)
+        ca_rv = CharacterAffiliationFactory(character=character_rv)
+        corporation_rv = EveEntityCorporationFactory()
+        alliance_rv = EveEntityAllianceFactory()
+        faction_rv = EveEntityFactionFactory()
+
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "alliance_id": alliance_ct.id,
+                    "character_id": contact.eve_entity.id,
+                    "corporation_id": corporation_ct.id,
+                    "faction_id": faction_ct.id,
+                },
+                {
+                    "alliance_id": alliance_rq.id,
+                    "character_id": rq.contact_id,
+                    "corporation_id": corporation_rq.id,
+                    "faction_id": faction_rq.id,
+                },
+                {
+                    "alliance_id": alliance_rv.id,
+                    "character_id": rv.contact_id,
+                    "corporation_id": corporation_rv.id,
+                    "faction_id": faction_rv.id,
+                },
+            ],
+        )
+
+        # when
+        CharacterAffiliation.objects.update_from_esi()
+
+        # then
+        ca_ct.refresh_from_db()
+        self.assertEqual(ca_ct.corporation, corporation_ct)
+        self.assertEqual(ca_ct.alliance, alliance_ct)
+        self.assertEqual(ca_ct.faction, faction_ct)
+
+        ca_rq.refresh_from_db()
+        self.assertEqual(ca_rq.corporation, corporation_rq)
+        self.assertEqual(ca_rq.alliance, alliance_rq)
+        self.assertEqual(ca_rq.faction, faction_rq)
+
+        ca_rv.refresh_from_db()
+        self.assertEqual(ca_rv.corporation, corporation_rv)
+        self.assertEqual(ca_rv.alliance, alliance_rv)
+        self.assertEqual(ca_rv.faction, faction_rv)
+
+    @pook.on
+    def test_should_do_nothing_when_fetching_from_esi_failed(self):
+        # given
+        cs = ContactSetFactory()
+        ContactCharacterFactory(contact_set=cs)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.NOT_FOUND,
+            response_json={"error": "not found"},
+        )
+
+        # when
+        CharacterAffiliation.objects.update_from_esi()
+
+
+class TestCharacterAffiliationsManager_UpdateEveCharacterRelations(
+    TestCaseWithClearCache
+):
+    def test_should_add_new_eve_character_relations(self):
         # given
         create_contacts_set(include_assoc=True)
         eve_character_1001 = create_entity(EveCharacter, 1001)
         # when
-        CharacterAffiliation.objects.update_evecharacter_relations()
+        CharacterAffiliation.objects.update_eve_character_relations()
         # then
         assoc = CharacterAffiliation.objects.get(character_id=1001)
         self.assertEqual(assoc.eve_character, eve_character_1001)
 
-    def test_should_update_existing_eve_character_relations(self, mock_esi):
+    def test_should_update_existing_eve_character_relations(self):
         # given
         create_contacts_set(include_assoc=True)
         eve_character_1001 = create_entity(EveCharacter, 1001)
@@ -545,52 +720,90 @@ class TestCharacterAffiliationsManager(NoSocketsTestCase):
         assoc.eve_character = eve_character_1002
         assoc.save()
         # when
-        CharacterAffiliation.objects.update_evecharacter_relations()
+        CharacterAffiliation.objects.update_eve_character_relations()
         # then
         assoc = CharacterAffiliation.objects.get(character_id=1001)
         self.assertEqual(assoc.eve_character, eve_character_1001)
 
 
-@patch(MANAGERS_PATH + ".esi")
-class TestCorporationDetailsManager(NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        create_contacts_set()
-        load_eve_entities()
-
-    def test_should_update_corporations(self, mock_esi):
+class TestCorporationDetailsManager_UpdateOrCreateFromEsi(TestCaseWithClearCache):
+    @pook.on
+    def test_should_update_corporations(self):
         # given
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
+        corporation = EveEntityCorporationFactory()
+        alliance = EveEntityAllianceFactory()
+        ceo = EveEntityCharacterFactory()
+        corporation_ticker = "WYT"
+        member_count = 42
+        pook.get(
+            make_esi_url(f"corporations/{corporation.id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "alliance_id": alliance.id,
+                "ceo_id": ceo.id,
+                "creator_id": 90000001,
+                "member_count": member_count,
+                "name": corporation.name,
+                "tax_rate": 0,
+                "ticker": corporation_ticker,
+            },
         )
         # when
-        obj, created = CorporationDetails.objects.update_or_create_from_esi(2001)
+        obj: CorporationDetails
+        obj, created = CorporationDetails.objects.update_or_create_from_esi(
+            corporation.id
+        )
+
         # then
         self.assertTrue(created)
-        self.assertEqual(obj.corporation_id, 2001)
-        self.assertEqual(obj.alliance_id, 3001)
-        self.assertEqual(obj.ceo_id, 1003)
-        self.assertEqual(obj.member_count, 3)
-        self.assertEqual(obj.ticker, "WYT")
+        self.assertEqual(obj.corporation, corporation)
+        self.assertEqual(obj.alliance, alliance)
+        self.assertEqual(obj.ceo, ceo)
+        self.assertEqual(obj.member_count, member_count)
+        self.assertEqual(obj.ticker, corporation_ticker)
         self.assertIsNone(obj.faction)
 
-    def test_should_not_update_corporations_with_invalid_ceo(self, mock_esi):
+    @pook.on
+    def test_should_handle_missing_ceo(self):
         # given
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
+        corporation = EveEntityCorporationFactory()
+        alliance = EveEntityAllianceFactory()
+        corporation_ticker = "WYT"
+        member_count = 42
+        pook.get(
+            make_esi_url(f"corporations/{corporation.id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "alliance_id": alliance.id,
+                "ceo_id": 1,
+                "creator_id": 90000001,
+                "member_count": member_count,
+                "name": corporation.name,
+                "tax_rate": 0,
+                "ticker": corporation_ticker,
+            },
         )
         # when
-        obj, created = CorporationDetails.objects.update_or_create_from_esi(2199)
+        obj: CorporationDetails
+        obj, created = CorporationDetails.objects.update_or_create_from_esi(
+            corporation.id
+        )
+
         # then
         self.assertTrue(created)
-        self.assertEqual(obj.corporation_id, 2199)
-        self.assertIsNone(obj.ceo_id)
+        self.assertEqual(obj.corporation, corporation)
+        self.assertEqual(obj.alliance, alliance)
+        self.assertIsNone(obj.ceo)
+        self.assertEqual(obj.member_count, member_count)
+        self.assertEqual(obj.ticker, corporation_ticker)
+        self.assertIsNone(obj.faction)
 
-    def test_should_return_all_corporation_ids(self, _mock_esi):
+
+class TestCorporationDetailsManager_CorporationIdsFromContacts(NoSocketsTestCase):
+    def test_should_return_all_corporation_ids(self):
         # given
+        create_contacts_set()
+        load_eve_entities()
         # when
         result = CorporationDetails.objects.corporation_ids_from_contacts()
         # then
@@ -611,7 +824,7 @@ class TestRequestLogEntryManager(TestCase):
             corporation_name="Wayne Technologies",
             corporation_ticker="WYT",
             alliance_id=3001,
-            alliance_name="Wayne Enterprices",
+            alliance_name="Wayne Enterprises",
         )
         cls.user_requestor = create_fake_user(
             character_id=1002,
@@ -620,7 +833,7 @@ class TestRequestLogEntryManager(TestCase):
             corporation_name="Wayne Technologies",
             corporation_ticker="WYT",
             alliance_id=3001,
-            alliance_name="Wayne Enterprices",
+            alliance_name="Wayne Enterprises",
         )
 
     def test_should_create_entry_for_confirmed_request(self):
@@ -681,7 +894,7 @@ class TestFrozenAuthUserManager(NoSocketsTestCase):
             corporation_name="Wayne Technologies",
             corporation_ticker="WYT",
             alliance_id=3001,
-            alliance_name="Wayne Enterprices",
+            alliance_name="Wayne Enterprises",
         )
         user.profile.main_character.faction_id = 500001
         user.profile.main_character.faction_name = "Caldari State"
@@ -759,7 +972,7 @@ class TestFrozenAuthUserManager(NoSocketsTestCase):
             corporation_name="Wayne Technologies",
             corporation_ticker="WYT",
             alliance_id=3001,
-            alliance_name="Wayne Enterprices",
+            alliance_name="Wayne Enterprises",
         )
         user.profile.main_character.faction_id = 500001
         user.profile.main_character.faction_name = "Caldari State"
@@ -793,7 +1006,7 @@ class TestFrozenAuthUserManager(NoSocketsTestCase):
             corporation_name="Wayne Technologies",
             corporation_ticker="WYT",
             alliance_id=3001,
-            alliance_name="Wayne Enterprices",
+            alliance_name="Wayne Enterprises",
         )
         obj, _ = FrozenAuthUser.objects.get_or_create_from_user(user)
         # when

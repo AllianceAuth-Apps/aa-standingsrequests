@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Dropped support for Python 3.8 & 3.9
+- Not uses local spec file for django-esi
 
 ## [2.0.0] - 2026-03-24
 

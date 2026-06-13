@@ -133,7 +133,7 @@ def update_character_affiliations_from_esi():
 
 @shared_task
 def update_character_affiliations_to_auth():
-    CharacterAffiliation.objects.update_evecharacter_relations()
+    CharacterAffiliation.objects.update_eve_character_relations()
     logger.info("Finished updating character affiliations to Auth.")
 
 

@@ -149,7 +149,7 @@ Name | Description | Default
 `SR_PAGE_CACHE_SECONDS` | Number of seconds to cache heavy pages like character and groups standing. Set to 0 to disable. | `600`
 `SR_STANDINGS_STALE_HOURS` | Standing data will be considered stale and removed from the local database after the configured hours. The latest standings data will never be purged, no matter how old it is | `48`
 `SR_STANDING_TIMEOUT_HOURS` | Max hours to wait for a standing to be effective after being marked actioned. Non effective standing requests will be reset when this timeout expires. | `24`
-`SR_SYNC_BLUE_ALTS_ENABLED` | Automatically sync standing of alts known to Auth that have standing in game  | `True`
+`SR_SYNC_BLUE_ALTS_ENABLED` | Automatically sync standing of alts known to Auth that have standing in game | `True`
 `STANDINGS_API_CHARID` | Eve Online ID of character to use for fetching alliance contacts from ESI (Mandatory) | -
 `STR_ALLIANCE_IDS` | Eve Online ID of alliances. Characters belonging to one of those alliances are considered "in organization". Your main alliance goes here when in alliance mode. (Mandatory, can be []) | -
 `STR_CORP_IDS` | Eve Online ID of corporations. Characters belonging to one of those corporations are considered "in organization". Your main corporation goes here when in corporation mode. (Mandatory, can be []) | -
@@ -158,12 +158,12 @@ Name | Description | Default
 
 These are all relevant permissions:
 
-Name | Description
+Short | Long | Description
 -- | --
-*abstract standings request - User can request standings* | This is the permission required to have basic access to this app and be able to request and maintain blue standings without them being revoked. IMPORTANT: When a user no longer has this permission all of their standings will be revoked.
-*contact set - User can view standings* | See which mains the character and corporation standing have been requested by. Typically you'll probably only want standings managers to have this.
-*abstract standings request - User can process standings requests* | User can see standings requests and process/approve/reject them.
-*contact set - User can export standing requests* | User can download all of the standings data, including main character associations, as a CSV file. Useful if you want to do some extra fancy processing in a spreadsheet or something.
+`request_standings`| *abstract standings request - User can request standings* | This is the permission required to have basic access to this app and be able to request and maintain blue standings without them being revoked. IMPORTANT: When a user no longer has this permission all of their standings will be revoked.
+`view` | *contact set - User can view standings* | See which mains the character and corporation standing have been requested by. Typically you'll probably only want standings managers to have this.
+`affect_standings` | *abstract standings request - User can process standings requests* | User can see standings requests and process/approve/reject them.
+`download` | *contact set - User can export standing requests* | User can download all of the standings data, including main character associations, as a CSV file. Useful if you want to do some extra fancy processing in a spreadsheet or something.
 
 ## Standings Requirements
 
@@ -233,5 +233,5 @@ Standings created by this command will not have an actioner name set.
 
 ## History
 
-This is a fork of [Basraah's standingrequests](https://gitlab.com/ErikKalkoken/aa-standingsrequests).
+This is a fork of [Basraah's standingsrequests](https://gitlab.com/ErikKalkoken/aa-standingsrequests).
 Big thanks to Basraah for all his effort in developing the initial version.

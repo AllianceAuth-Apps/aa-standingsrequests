@@ -579,7 +579,7 @@ class StandingRevocationManager(AbstractStandingsRequestManager):
 
 
 class CharacterAffiliationManager(models.Manager):
-    def update_evecharacter_relations(self) -> None:
+    def update_eve_character_relations(self) -> None:
         """Update links to eve character in auth if any"""
 
         eve_character_id_map = {
@@ -720,7 +720,7 @@ class CorporationDetailsManager(models.Manager):
         logger.info("%s: Fetching corporation from ESI", id)
         data = esi.client.Corporation.get_corporations_corporation_id(
             corporation_id=id
-        ).results()
+        ).result()
         corporation = EveEntity.objects.get_or_create(id=id)[0]
         alliance = (
             EveEntity.objects.get_or_create(id=data["alliance_id"])[0]

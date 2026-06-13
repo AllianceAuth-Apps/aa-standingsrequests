@@ -1,5 +1,10 @@
+from pathlib import Path
+
 from esi.clients import EsiClientProvider
 
 from standingsrequests import __version__
 
-esi = EsiClientProvider(app_info_text=f"aa-standingsrequests v{__version__}")
+spec_file = Path(__file__).parent / "swagger.json"
+esi = EsiClientProvider(
+    app_info_text=f"aa-standingsrequests v{__version__}", spec_file=spec_file
+)

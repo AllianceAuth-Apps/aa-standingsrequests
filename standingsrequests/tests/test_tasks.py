@@ -62,7 +62,7 @@ class TestOtherTasks(TestCase):
         CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True
     )
     @patch(MODULE_PATH + ".CorporationDetails.objects.update_or_create_from_esi")
-    @patch(MODULE_PATH + ".CharacterAffiliation.objects.update_evecharacter_relations")
+    @patch(MODULE_PATH + ".CharacterAffiliation.objects.update_eve_character_relations")
     @patch(MODULE_PATH + ".CharacterAffiliation.objects.update_from_esi")
     def test_update_associations_api(
         self,

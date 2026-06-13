@@ -35,7 +35,7 @@ class TestStandingsView(TestCase):
         load_eve_entities()
         create_eve_objects()
         cls.contact_set = create_contacts_set()
-        CharacterAffiliation.objects.update_evecharacter_relations()
+        CharacterAffiliation.objects.update_eve_character_relations()
 
         cls.user = AuthUtils.create_member("John Doe")
         cls.user = AuthUtils.add_permission_to_user_by_name(
@@ -60,7 +60,7 @@ class TestCharacterStandingsData(PartialDictEqualMixin, TestCase):
         load_eve_entities()
         create_eve_objects()
         cls.contact_set = create_contacts_set()
-        CharacterAffiliation.objects.update_evecharacter_relations()
+        CharacterAffiliation.objects.update_eve_character_relations()
 
         member_state = AuthUtils.get_member_state()
         member_state.member_alliances.add(EveAllianceInfo.objects.get(alliance_id=3001))
