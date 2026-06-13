@@ -7,7 +7,7 @@ name = "aa-standingsrequests"
 dynamic = ["version", "description"]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     { name = "Basraah" },
     { name = "Erik Kalkoken", email = "kaloken87@gmail.com" },
@@ -20,8 +20,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -31,9 +29,11 @@ classifiers = [
 dependencies = [
     "allianceauth>=4,<5",
     "django-esi<9",
-    "allianceauth-app-utils>=1.30.1",
-    "django-eveuniverse>=1.6",
+    "allianceauth-app-utils>=1.32",
+    "django-eveuniverse>=2",
 ]
+[project.optional-dependencies]
+test = ["coverage", "factory_boy", "django-webtest", "pook"]
 
 [project.urls]
 Homepage = "https://gitlab.com/ErikKalkoken/aa-standingsrequests"

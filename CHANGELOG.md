@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [3.0.0] - TBD
+
+### Changed
+
+- Dropped support for Python 3.8 & 3.9
+
 ## [2.0.0] - 2026-03-24
 
 ### Update notes
