@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from django.contrib.auth.models import User
-from django.db import models
+from django.db.models import QuerySet
 from django.utils.html import format_html
 
 from allianceauth.eveonline.models import EveCharacter
@@ -188,15 +188,13 @@ class OrganizationInfo:
 
 
 def compose_standing_requests_data(
-    requests_qs: models.QuerySet, quick_check: bool = False
-) -> list:
+    requests_qs: QuerySet, quick_check: bool = False
+) -> List[Dict[str, Any]]:
     """composes list of standings requests or revocations based on queryset
     and returns it
     """
-    requests_query: models.QuerySet[AbstractStandingsRequest] = (
-        requests_qs.select_related(
-            "user", "user__profile__state", "user__profile__main_character"
-        )
+    requests_query: QuerySet[AbstractStandingsRequest] = requests_qs.select_related(
+        "user", "user__profile__state", "user__profile__main_character"
     )
     eve_characters = _preload_eve_characters(requests_query)
     eve_corporations = _preload_eve_corporations(requests_query)
@@ -246,7 +244,7 @@ def compose_standing_requests_data(
 
 # TODO: remove EveCorporation usage
 def _preload_eve_corporations(
-    requests_qs: models.QuerySet,
+    requests_qs: QuerySet,
 ) -> Dict[int, EveCorporation]:
     corporation_ids = requests_qs.filter(
         contact_type_id=ContactTypeId.CORPORATION
@@ -259,7 +257,7 @@ def _preload_eve_corporations(
     return eve_corporations
 
 
-def _preload_eve_characters(requests_qs: models.QuerySet) -> Dict[int, EveCharacter]:
+def _preload_eve_characters(requests_qs: QuerySet) -> Dict[int, EveCharacter]:
     eve_characters = EveCharacter.objects.filter(
         character_id__in=(
             requests_qs.exclude(contact_type_id=ContactTypeId.CORPORATION).values_list(

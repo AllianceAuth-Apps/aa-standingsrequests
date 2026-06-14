@@ -13,6 +13,7 @@ from eveuniverse.tests.testdata.factories_2 import (
     EveEntityFactionFactory,
 )
 
+from allianceauth.authentication.models import State
 from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
 
 from standingsrequests.core.contact_types import ContactTypeId
@@ -45,6 +46,50 @@ class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
         return super().__call__(*args, **kwargs)
 
 
+class StateFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[State]):
+    class Meta:
+        model = State
+
+    name = factory.LazyAttribute(lambda o: f"State #{o.priority}")
+    priority = factory.Sequence(lambda n: n + 900)
+    public = False
+
+    @factory.post_generation
+    def permissions(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.permissions.add(*extracted)
+
+    @factory.post_generation
+    def member_characters(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_characters.add(*extracted)
+
+    @factory.post_generation
+    def member_corporations(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_corporations.add(*extracted)
+
+    @factory.post_generation
+    def member_alliances(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_alliances.add(*extracted)
+
+    @factory.post_generation
+    def member_factions(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_factions.add(*extracted)
+
+
 class EveCorporationFactory(factory.Factory, metaclass=BaseMetaFactory[EveCorporation]):
     class Meta:
         model = EveCorporation
@@ -67,6 +112,17 @@ class UserMainRequestorFactory(UserMainFactory):
 
 
 class UserMainApproverFactory(UserMainFactory):
+    permissions__ = [
+        "standingsrequests.affect_standings",
+        "standingsrequests.view",
+    ]
+
+
+class UserMainOwnerFactory(UserMainFactory):
+    main_character__scopes = [
+        "esi-alliances.read_contacts.v1",
+        "esi-corporations.read_contacts.v1",
+    ]
     permissions__ = [
         "standingsrequests.affect_standings",
         "standingsrequests.view",
@@ -130,11 +186,17 @@ class ContactCharacterFactory(
     is_watched = False
 
 
-class StandingRequestCharacterFactory(
+class StandingRequestFactory(
     factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[StandingRequest]
 ):
     class Meta:
         model = StandingRequest
+
+    class Params:
+        is_corporation = factory.Trait(
+            contact_id=factory.fuzzy.FuzzyInteger(98_800_001, 98_899_999),
+            contact_type_id=ContactTypeId.CORPORATION,
+        )
 
     action_by = None
     action_date = None
@@ -154,7 +216,7 @@ class StandingRevocationCharacterFactory(
 
     action_by = None
     action_date = None
-    contact_id = factory.fuzzy.FuzzyInteger(90_800_001, 90_900_001)
+    contact_id = factory.fuzzy.FuzzyInteger(90_800_001, 90_899_999)
     contact_type_id = factory.LazyFunction(ContactTypeId.character_id)
     effective_date = None
     is_effective = False

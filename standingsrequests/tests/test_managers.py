@@ -16,6 +16,7 @@ from eveuniverse.tests.testdata.factories_2 import (
 
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
+from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
 from app_utils.testing import NoSocketsTestCase, add_character_to_user, create_fake_user
 
 from standingsrequests.core import app_config
@@ -23,6 +24,7 @@ from standingsrequests.models import (
     AbstractStandingsRequest,
     CharacterAffiliation,
     Contact,
+    ContactLabel,
     ContactSet,
     CorporationDetails,
     FrozenAlt,
@@ -40,10 +42,8 @@ from standingsrequests.tests.testdata.factories import (
     CharacterAffiliationFactory,
     ContactCharacterFactory,
     ContactSetFactory,
-    StandingRequestCharacterFactory,
+    StandingRequestFactory,
     StandingRevocationCharacterFactory,
-    UserMainApproverFactory,
-    UserMainRequestorFactory,
     make_esi_url,
 )
 from standingsrequests.tests.testdata.my_test_data import (
@@ -52,8 +52,6 @@ from standingsrequests.tests.testdata.my_test_data import (
     create_contacts_set,
     create_entity,
     create_standings_char,
-    esi_get_alliances_alliance_id_contacts,
-    esi_get_alliances_alliance_id_contacts_labels,
     load_eve_entities,
 )
 
@@ -74,46 +72,6 @@ class TestContactSetManager(NoSocketsTestCase):
         )
 
     @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
-    @patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance")
-    @patch(MANAGERS_PATH + ".esi")
-    def test_can_create_new_from_api(self, mock_esi):
-        mock_Contacts = mock_esi.client.Contacts
-        mock_Contacts.get_alliances_alliance_id_contacts_labels.side_effect = (
-            esi_get_alliances_alliance_id_contacts_labels
-        )
-        mock_Contacts.get_alliances_alliance_id_contacts.side_effect = (
-            esi_get_alliances_alliance_id_contacts
-        )
-
-        # labels
-        contact_set = ContactSet.objects.create_new_from_api()
-        labels = set(contact_set.labels.values_list("label_id", "name"))
-        expected = {(1, "blue"), (2, "green"), (3, "yellow"), (4, "red")}
-        self.assertSetEqual(labels, expected)
-
-        # all_contacts
-        all_contacts = set(
-            contact_set.contacts.values_list("eve_entity_id", "standing")
-        )
-        expected = {
-            (1001, 10),
-            (1002, 10),
-            (1003, 5),
-            (1004, 0.01),
-            (1005, 0),
-            (1006, 0),
-            (1008, -5),
-            (1009, -10),
-            (1010, 5),
-            (1110, 5.0),
-            (2001, 10.0),
-            (2003, 5.0),
-            (2102, -10.0),
-            (3010, -10.0),
-        }
-        self.assertSetEqual(all_contacts, expected)
-
-    @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
     def test_standings_character_exists(self):
         character = create_standings_char()
         self.assertEqual(app_config.owner_character(), character)
@@ -132,6 +90,130 @@ class TestContactSetManager(NoSocketsTestCase):
         mock_create_character.return_value = character
         self.assertEqual(app_config.owner_character(), character)
         self.assertTrue(EveEntity.objects.filter(id=TEST_STANDINGS_API_CHARID).exists())
+
+
+class TestContactSetManager_CreateNewFromApi(TestCaseWithClearCache):
+    @pook.on
+    def test_can_create_new_from_api_in_alliance_mode(self):
+        # given
+        owner_character = EveCharacterFactory(corporation__create_alliance=True)
+        UserMainFactory(
+            main_character__character=owner_character,
+            main_character__scopes=["esi-alliances.read_contacts.v1"],
+        )
+        label_id = 42
+        label_name = "Alpha"
+        pook.get(
+            make_esi_url(f"alliances/{owner_character.alliance_id}/contacts/labels"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "label_id": label_id,
+                    "label_name": label_name,
+                }
+            ],
+        )
+
+        character = EveEntityCharacterFactory()
+        standing = -5
+        pook.get(
+            make_esi_url(f"alliances/{owner_character.alliance_id}/contacts"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "contact_id": character.id,
+                    "contact_type": "character",
+                    "label_ids": [label_id],
+                    "standing": standing,
+                }
+            ],
+        )
+
+        # when
+        with (
+            patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance"),
+            patch(
+                CORE_PATH + ".app_config.STANDINGS_API_CHARID",
+                owner_character.character_id,
+            ),
+        ):
+            contact_set: ContactSet = ContactSet.objects.create_new_from_api()
+
+        # then
+        self.assertEqual(contact_set.labels.count(), 1)
+        label: ContactLabel = contact_set.labels.first()
+        self.assertEqual(label.name, label_name)
+        self.assertEqual(label.label_id, label_id)
+
+        self.assertEqual(contact_set.contacts.count(), 1)
+        contact: Contact = contact_set.contacts.first()
+        self.assertEqual(contact.eve_entity, character)
+        self.assertEqual(contact.standing, standing)
+        self.assertCountEqual(contact.labels.all(), [label])
+
+    @pook.on
+    def test_can_create_new_from_api_in_corporation_mode(self):
+        # given
+        owner_character = EveCharacterFactory()
+        UserMainFactory(
+            main_character__character=owner_character,
+            main_character__scopes=["esi-corporations.read_contacts.v1"],
+        )
+        label_id = 42
+        label_name = "Alpha"
+        pook.get(
+            make_esi_url(
+                f"corporations/{owner_character.corporation_id}/contacts/labels"
+            ),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "label_id": label_id,
+                    "label_name": label_name,
+                }
+            ],
+        )
+
+        character = EveEntityCharacterFactory()
+        standing = -5
+        pook.get(
+            make_esi_url(f"corporations/{owner_character.corporation_id}/contacts"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "contact_id": character.id,
+                    "contact_type": "character",
+                    "label_ids": [label_id],
+                    "standing": standing,
+                }
+            ],
+        )
+
+        # when
+        with (
+            patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "corporation"),
+            patch(
+                CORE_PATH + ".app_config.STANDINGS_API_CHARID",
+                owner_character.character_id,
+            ),
+        ):
+            contact_set: ContactSet = ContactSet.objects.create_new_from_api()
+
+        # then
+        self.assertEqual(contact_set.labels.count(), 1)
+        label: ContactLabel = contact_set.labels.first()
+        self.assertEqual(label.name, label_name)
+        self.assertEqual(label.label_id, label_id)
+
+        self.assertEqual(contact_set.contacts.count(), 1)
+        contact: Contact = contact_set.contacts.first()
+        self.assertEqual(contact.eve_entity, character)
+        self.assertEqual(contact.standing, standing)
+        self.assertCountEqual(contact.labels.all(), [label])
 
 
 class TestAbstractStandingsRequestManager(TestCase):
@@ -479,12 +561,6 @@ class TestStandingsRevocationManager(TestCase):
 
 
 class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user_manager = UserMainApproverFactory()
-        cls.user_requestor = UserMainRequestorFactory()
-
     @pook.on
     def test_should_create_new_for_contacts_minimal(self):
         # given
@@ -523,7 +599,7 @@ class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
         alliance_ct = EveEntityAllianceFactory()
         faction_ct = EveEntityFactionFactory()
 
-        rq = StandingRequestCharacterFactory()
+        rq = StandingRequestFactory()
         EveEntityCharacterFactory(id=rq.contact_id)
         corporation_rq = EveEntityCorporationFactory()
         alliance_rq = EveEntityAllianceFactory()
@@ -625,7 +701,7 @@ class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
         alliance_ct = EveEntityAllianceFactory()
         faction_ct = EveEntityFactionFactory()
 
-        rq = StandingRequestCharacterFactory()
+        rq = StandingRequestFactory()
         character_rq = EveEntityCharacterFactory(id=rq.contact_id)
         ca_rq = CharacterAffiliationFactory(character=character_rq)
         corporation_rq = EveEntityCorporationFactory()

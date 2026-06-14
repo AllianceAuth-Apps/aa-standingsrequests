@@ -27,9 +27,6 @@ from standingsrequests.tests.testdata.my_test_data import (
     create_contacts_set,
     create_entity,
     create_standings_char,
-    esi_get_corporations_corporation_id,
-    esi_post_characters_affiliation,
-    esi_post_universe_names,
     get_my_test_data,
     load_eve_entities,
 )
@@ -66,7 +63,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         return orig_view(request, token)
 
     @patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "corporation")
-    def test_for_corp_when_provided_standingschar_return_success(
+    def test_for_corp_when_provided_standings_char_return_success(
         self, mock_messages, mock_update_all
     ):
         # given
@@ -82,7 +79,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         self.assertTrue(mock_update_all.delay.called)
 
     @patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "corporation")
-    def test_when_not_provided_standingschar_return_error(
+    def test_when_not_provided_standings_char_return_error(
         self, mock_messages, mock_update_all
     ):
         create_standings_char()
@@ -96,7 +93,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         self.assertFalse(mock_update_all.delay.called)
 
     @patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance")
-    def test_for_alliance_when_provided_standingschar_return_success(
+    def test_for_alliance_when_provided_standings_char_return_success(
         self, mock_messages, mock_update_all
     ):
         user = AuthUtils.create_user(TEST_STANDINGS_API_CHARNAME)
@@ -108,7 +105,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         self.assertTrue(mock_update_all.delay.called)
 
     @patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance")
-    def test_for_alliance_when_provided_standingschar_not_in_alliance_return_error(
+    def test_for_alliance_when_provided_standings_char_not_in_alliance_return_error(
         self, mock_messages, mock_update_all
     ):
         user = AuthUtils.create_user(TEST_STANDINGS_API_CHARNAME)
@@ -122,24 +119,10 @@ class TestViewAuthPage(NoSocketsTestCase):
         self.assertFalse(mock_update_all.delay.called)
 
 
-@patch(
-    "allianceauth.notifications.templatetags.auth_notifications.Notification.objects.user_unread_count",
-    lambda *args, **kwargs: 1,
-)
 @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
 @patch(MANAGERS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
-@patch(HELPERS_EVECORPORATION_PATH + ".esi")
 class TestViewsBasics(TestViewPagesBase):
-    def _setup_mocks(self, mock_esi):
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
-        )
-        mock_esi.client.Universe.post_universe_names.side_effect = (
-            esi_post_universe_names
-        )
-
-    def test_should_redirect_to_create_requests_page_for_requestor_1(self, mock_esi):
+    def test_should_redirect_to_create_requests_page_for_requestor_1(self):
         # given
         request = self.factory.get(reverse("standingsrequests:index"))
         request.user = self.user_requestor
@@ -149,7 +132,7 @@ class TestViewsBasics(TestViewPagesBase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
 
-    def test_should_redirect_to_create_requests_page_for_requestor_2(self, mock_esi):
+    def test_should_redirect_to_create_requests_page_for_requestor_2(self):
         # given
         request = self.factory.get(reverse("standingsrequests:index"))
         request.user = self.user_requestor
@@ -164,7 +147,7 @@ class TestViewsBasics(TestViewPagesBase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
 
-    def test_should_redirect_to_create_requests_page_for_manger(self, mock_esi):
+    def test_should_redirect_to_create_requests_page_for_manger(self):
         # given
         request = self.factory.get(reverse("standingsrequests:index"))
         request.user = self.user_requestor
@@ -487,7 +470,7 @@ class TestRemoveCharacterStanding(NoSocketsTestCase):
         with self.assertRaises(Http404):
             self._view_request_pilot_standing(random_character.character_id)
 
-    def test_should_not_remove_request_if_character_is_owned_by_sombody_else(self):
+    def test_should_not_remove_request_if_character_is_owned_by_somebody_else(self):
         # given
         user = AuthUtils.create_member("Peter Parker")
         other_character = create_entity(EveCharacter, 1006)
@@ -547,18 +530,8 @@ class TestRequestCorporationStanding(TestCase):
             )
             with (
                 patch(VIEWS_PATH + ".messages.warning") as mock_message,
-                patch(MANAGERS_PATH + ".esi") as mock_esi,
+                patch(VIEWS_PATH + ".update_associations_api"),
             ):
-                mock_esi.client.Character.post_characters_affiliation.side_effect = (
-                    esi_post_characters_affiliation
-                )
-                mock_Corporation = mock_esi.client.Corporation
-                mock_Corporation.get_corporations_corporation_id.side_effect = (
-                    esi_get_corporations_corporation_id
-                )
-                mock_esi.client.Universe.post_universe_names.side_effect = (
-                    esi_post_universe_names
-                )
                 response = create_requests.request_corp_standing(
                     request, corporation_id
                 )

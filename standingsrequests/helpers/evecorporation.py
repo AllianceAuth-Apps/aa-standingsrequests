@@ -99,11 +99,14 @@ class EveCorporation:
         - user: user owning the characters
         - quick: if True will not check if tokens are valid to save time
         """
-        return (
-            self.member_count is not None
-            and self.member_tokens_count_for_user(user=user, quick_check=quick_check)
-            >= self.member_count
+        if not self.member_count:
+            return False
+
+        valid_count = self.member_tokens_count_for_user(
+            user=user, quick_check=quick_check
         )
+        has_all_tokens = valid_count >= self.member_count
+        return has_all_tokens
 
     @classmethod
     def get_by_id(
