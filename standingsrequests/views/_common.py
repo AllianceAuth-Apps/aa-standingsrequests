@@ -190,8 +190,11 @@ class OrganizationInfo:
 def compose_standing_requests_data(
     requests_qs: QuerySet, quick_check: bool = False
 ) -> List[Dict[str, Any]]:
-    """composes list of standings requests or revocations based on queryset
-    and returns it
+    """Compose list of standings requests or revocations based and return them.
+
+    Args:
+        - requests_qs: Queryset of requests to include
+        - quick_check: whether to skip checking if tokens are valid
     """
     requests_query: QuerySet[AbstractStandingsRequest] = requests_qs.select_related(
         "user", "user__profile__state", "user__profile__main_character"

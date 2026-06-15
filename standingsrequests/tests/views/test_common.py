@@ -3,11 +3,12 @@ from unittest.mock import patch
 from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
 from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.models import StandingRequest
+from standingsrequests.models import StandingRequest, StandingRevocation
 from standingsrequests.tests.testdata.factories import (
     CharacterAffiliationFactory,
     EveCorporationFactory,
     StandingRequestFactory,
+    StandingRevocationFactory,
     StateFactory,
     UserMainRequestorFactory,
 )
@@ -29,6 +30,44 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         )
         CharacterAffiliationFactory(eve_character=character, is_eve_character=True)
         qs = StandingRequest.objects.all()
+
+        # when
+        with patch(
+            MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
+        ) as m:
+            m.return_value = True
+            got = _common.compose_standing_requests_data(qs)
+
+        # then
+        self.assertEqual(len(got), 1)
+        obj = got[0]
+        self.assertEqual(obj["action_by"], user.username)
+        self.assertEqual(obj["alliance_id"], character.alliance_id)
+        self.assertEqual(obj["alliance_name"], character.alliance_name)
+        self.assertEqual(obj["contact_id"], character.character_id)
+        self.assertEqual(obj["contact_name"], character.character_name)
+        self.assertEqual(obj["corporation_name"], character.corporation_name)
+        self.assertEqual(obj["corporation_ticker"], character.corporation_ticker)
+        self.assertEqual(obj["has_scopes"], True)
+        self.assertEqual(obj["is_character"], True)
+        self.assertEqual(obj["is_corporation"], False)
+        self.assertEqual(obj["is_effective"], False)
+        self.assertCountEqual(obj["labels"], [])
+        self.assertEqual(obj["main_character_name"], main.character_name)
+        self.assertEqual(obj["state"], state.name)
+
+    def test_can_create_for_character_standing_revocation(self):
+        # given
+        main = EveCharacterFactory()
+        state = StateFactory(member_characters=[main])
+        user = UserMainRequestorFactory(main_character__character=main)
+        character = EveCharacterFactory()
+        add_character_to_user(user, character)
+        StandingRevocationFactory(
+            user=user, contact_id=character.character_id, action_by=user
+        )
+        CharacterAffiliationFactory(eve_character=character, is_eve_character=True)
+        qs = StandingRevocation.objects.all()
 
         # when
         with patch(
@@ -106,34 +145,53 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         self.assertEqual(obj["main_character_name"], main.character_name)
         self.assertEqual(obj["state"], state.name)
 
+    def test_can_create_for_corporation_standing_revocation(self):
+        # given
+        corporation = EveCorporationInfoFactory(member_count=1)
+        main = EveCharacterFactory(corporation=corporation)
+        state = StateFactory(member_characters=[main])
+        user = UserMainRequestorFactory(main_character__character=main)
+        StandingRevocationFactory(
+            action_by=user,
+            contact_id=corporation.corporation_id,
+            is_corporation=True,
+            user=user,
+        )
+        qs = StandingRevocation.objects.all()
 
-# want = {
-#     "contact_id": None,
-#     "contact_name": None,
-#     "contact_icon_url": None,
-#     "contact_name_html": {
-#         "display": None,
-#         "sort": None,
-#     },
-#     "corporation_id": None,
-#     "corporation_name": None,
-#     "corporation_ticker": None,
-#     "alliance_id": None,
-#     "alliance_name": None,
-#     "organization_html": None,
-#     "request_date": None,
-#     "action_date": None,
-#     "has_scopes": None,
-#     "state": None,
-#     "reason": None,
-#     "labels": [],
-#     "main_character_name": None,
-#     "main_character_ticker": None,
-#     "main_character_icon_url": None,
-#     "main_character_html": None,
-#     "actioned": None,
-#     "is_effective": None,
-#     "is_corporation": None,
-#     "is_character": None,
-#     "action_by": "",
-# }
+        # when
+        with (
+            patch(
+                MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
+            ) as has_required_scopes_for_request,
+            patch(MODULE_PATH + ".EveCorporation.get_many_by_id") as get_many_by_id,
+        ):
+            has_required_scopes_for_request.return_value = True
+            get_many_by_id.return_value = [
+                EveCorporationFactory(
+                    ceo_id=corporation.ceo_id,
+                    corporation_id=corporation.corporation_id,
+                    corporation_name=corporation.corporation_name,
+                    member_count=corporation.member_count,
+                    ticker=corporation.corporation_ticker,
+                )
+            ]
+            got = _common.compose_standing_requests_data(qs)
+
+        # then
+        self.assertEqual(len(got), 1)
+        obj = got[0]
+        self.assertEqual(obj["action_by"], user.username)
+        self.assertIsNone(obj["alliance_id"])
+        self.assertEqual(obj["alliance_name"], "")
+        self.assertEqual(obj["contact_id"], corporation.corporation_id)
+        self.assertEqual(obj["contact_name"], corporation.corporation_name)
+        self.assertEqual(obj["corporation_name"], corporation.corporation_name)
+        self.assertEqual(obj["corporation_ticker"], corporation.corporation_ticker)
+        self.assertEqual(obj["has_scopes"], True)
+        self.assertEqual(obj["is_character"], False)
+        self.assertEqual(obj["is_corporation"], True)
+        self.assertEqual(obj["is_effective"], False)
+        self.assertCountEqual(obj["labels"], [])
+        self.assertEqual(obj["main_character_name"], main.character_name)
+        self.assertEqual(obj["state"], state.name)

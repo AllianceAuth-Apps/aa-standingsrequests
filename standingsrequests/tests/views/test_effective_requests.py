@@ -1,89 +1,69 @@
 from unittest.mock import patch
 
+from django.test import RequestFactory
 from django.urls import reverse
+from django.utils.timezone import now
 
-from standingsrequests.tests.testdata.my_test_data import (
-    esi_get_corporations_corporation_id,
-    esi_post_universe_names,
-)
-from standingsrequests.tests.utils import TestViewPagesBase, json_response_to_dict_2
-from standingsrequests.views.effective_requests import effective_requests_data
+from app_utils.testing import json_response_to_python
 
-HELPERS_EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
+from standingsrequests.tests.testdata.factories import UserMainApproverFactory
+from standingsrequests.tests.utils_2 import TestCaseWithClearCache
+
+MODULE_PATH = "standingsrequests.views.effective_requests"
 
 
-@patch(HELPERS_EVECORPORATION_PATH + ".cache")
-@patch(HELPERS_EVECORPORATION_PATH + ".esi")
-class TestEffectiveRequestsData(TestViewPagesBase):
-    def test_request_character(self, mock_esi, mock_cache):
+class TestEffectiveRequestsData2(TestCaseWithClearCache):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.factory = RequestFactory()
+
+    @patch(MODULE_PATH + ".compose_standing_requests_data")
+    def test_effective_requests_data(self, mock_compose_standing_requests_data):
         # given
-        alt_id = self.alt_character_1.character_id
-        self._create_standing_for_alt(self.alt_character_1)
-        request = self.factory.get(reverse("standingsrequests:effective_requests_data"))
-        request.user = self.user_manager
-        my_view_without_cache = effective_requests_data.__wrapped__
+        contact_id = 90_000_001
+        contact_name = "Bruce Wayne"
+        request_date = now()
+        obj_1 = {
+            "contact_id": contact_id,
+            "contact_name": contact_name,
+            "contact_icon_url": "",
+            "contact_name_html": {
+                "display": "",
+                "sort": "",
+            },
+            "corporation_id": 98_000_000,
+            "corporation_name": "Wayne Technologies",
+            "corporation_ticker": "WYT",
+            "alliance_id": 99_000_001,
+            "alliance_name": "Wayne Enterprises",
+            "organization_html": "",
+            "request_date": request_date,
+            "action_date": now(),
+            "has_scopes": True,
+            "state": "Member",
+            "reason": "",
+            "labels": [],
+            "main_character_name": "Bruce Wayne",
+            "main_character_ticker": "WYT",
+            "main_character_icon_url": "url",
+            "main_character_html": "Bruce Wayne",
+            "actioned": "",
+            "is_effective": True,
+            "is_corporation": False,
+            "is_character": True,
+            "action_by": "",
+        }
+        mock_compose_standing_requests_data.return_value = [obj_1]
+        self.client.force_login(UserMainApproverFactory())
 
         # when
-        response = my_view_without_cache(request)
+        response = self.client.get(reverse("standingsrequests:effective_requests_data"))
 
         # then
         self.assertEqual(response.status_code, 200)
-        data = json_response_to_dict_2(response, "contact_id")
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
-
-        data_alt_1 = data[self.alt_character_1.character_id]
-        expected_alt_1 = {
-            "contact_id": 1007,
-            "contact_name": "James Gordon",
-            "corporation_name": "Metro Police",
-            "corporation_ticker": "MP",
-            "alliance_name": "",
-            "has_scopes": True,
-            "state": "Member",
-            "main_character_name": "Peter Parker",
-            "action_by": self.user_manager.username,
-            "labels_str": "",
-        }
-        self.assertPartialDictEqual(data_alt_1, expected_alt_1)
-
-    def test_request_corporation(self, mock_esi, mock_cache):
-        # given
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
-        )
-        mock_esi.client.Universe.post_universe_names.side_effect = (
-            esi_post_universe_names
-        )
-        mock_cache.get.return_value = None
-        alt_id = self.alt_corporation.corporation_id
-        self._create_standing_for_alt(self.alt_corporation)
-        request = self.factory.get(reverse("standingsrequests:effective_requests_data"))
-        request.user = self.user_manager
-        my_view_without_cache = effective_requests_data.__wrapped__
-
-        # when
-        response = my_view_without_cache(request)
-
-        # then
-        self.assertEqual(response.status_code, 200)
-        data = json_response_to_dict_2(response, "contact_id")
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
-
-        expected_alt_1 = {
-            "contact_id": 2004,
-            "contact_name": "Metro Police",
-            "corporation_name": "Metro Police",
-            "corporation_ticker": "MP",
-            "alliance_name": "",
-            "has_scopes": True,
-            "state": "Member",
-            "main_character_name": "Peter Parker",
-            "action_by": self.user_manager.username,
-            "labels_str": "",
-        }
-        self.assertPartialDictEqual(data[alt_id], expected_alt_1)
+        data = json_response_to_python(response)["data"]
+        self.assertEqual(len(data), 1)
+        obj_2 = data.pop()
+        self.assertEqual(obj_2["contact_name"], contact_name)
+        self.assertEqual(obj_2["request_date_str"]["sort"], request_date.isoformat())

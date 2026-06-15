@@ -14,12 +14,12 @@ from app_utils.testing import (
 )
 
 from standingsrequests.helpers.evecorporation import EveCorporation
-from standingsrequests.tests.helpers_2 import TestCaseWithClearCache
 from standingsrequests.tests.testdata.factories import (
     EveCorporationFactory,
     make_esi_url,
 )
 from standingsrequests.tests.testdata.my_test_data import create_eve_objects
+from standingsrequests.tests.utils_2 import TestCaseWithClearCache
 
 EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
 MODELS_PATH = "standingsrequests.models"

@@ -1,340 +1,408 @@
-from unittest.mock import patch
+from http import HTTPStatus
+from unittest.mock import MagicMock, patch
 
+from django.http import Http404
+from django.test import RequestFactory
 from django.urls import reverse
+from django.utils.timezone import now
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+)
 
-from allianceauth.eveonline.models import EveCharacter
+from app_utils.testing import NoSocketsTestCase
 
 from standingsrequests.models import StandingRequest, StandingRevocation
-from standingsrequests.tests.testdata.my_test_data import (
-    esi_get_corporations_corporation_id,
-    esi_post_universe_names,
+from standingsrequests.tests.testdata.factories import (
+    StandingRequestFactory,
+    StandingRevocationFactory,
+    UserMainApproverFactory,
 )
-from standingsrequests.tests.utils import TestViewPagesBase
+from standingsrequests.tests.utils_2 import TestCaseWithClearCache
+from standingsrequests.views import manage_requests
 
-HELPERS_EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
+MODULE_PATH = "standingsrequests.views.manage_requests"
 
 
-@patch(HELPERS_EVECORPORATION_PATH + ".cache")
-@patch(HELPERS_EVECORPORATION_PATH + ".esi")
-class TestViewManageRequests(TestViewPagesBase):
-    def test_request_character(self, mock_esi, mock_cache):
+class TestEffectiveRequestsData2(TestCaseWithClearCache):
+    @patch(MODULE_PATH + ".compose_standing_requests_data")
+    def test_manage_requests_list(self, mock_compose_standing_requests_data):
         # given
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
-        )
-        mock_esi.client.Universe.post_universe_names.side_effect = (
-            esi_post_universe_names
-        )
-        mock_cache.get.return_value = None
-
-        alt_id = self.alt_character_1.character_id
-        standing_request = StandingRequest.objects.get_or_create_2(
-            self.user_requestor,
-            alt_id,
-            StandingRequest.ContactType.CHARACTER,
-        )
-        self.client.force_login(self.user_manager)
+        contact_id = 90_000_001
+        contact_name = "Bruce Wayne"
+        request_date = now()
+        obj_1 = {
+            "contact_id": contact_id,
+            "contact_name": contact_name,
+            "contact_icon_url": "",
+            "contact_name_html": {
+                "display": "",
+                "sort": "",
+            },
+            "corporation_id": 98_000_000,
+            "corporation_name": "Wayne Technologies",
+            "corporation_ticker": "WYT",
+            "alliance_id": 99_000_001,
+            "alliance_name": "Wayne Enterprises",
+            "organization_html": "",
+            "request_date": request_date,
+            "action_date": now(),
+            "has_scopes": True,
+            "state": "Member",
+            "reason": "",
+            "labels": [],
+            "main_character_name": "Bruce Wayne",
+            "main_character_ticker": "WYT",
+            "main_character_icon_url": "url",
+            "main_character_html": "Bruce Wayne",
+            "actioned": "",
+            "is_effective": True,
+            "is_corporation": False,
+            "is_character": True,
+            "action_by": "",
+        }
+        mock_compose_standing_requests_data.return_value = [obj_1]
+        self.client.force_login(UserMainApproverFactory())
 
         # when
         response = self.client.get(reverse("standingsrequests:manage_requests_list"))
 
         # then
-        self.assertEqual(response.status_code, 200)
-        data = {obj["contact_id"]: obj for obj in response.context.dicts[3]["requests"]}
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(len(response.context["requests"]), 1)
+        obj_2 = response.context["requests"].pop()
+        self.assertDictEqual(obj_1, obj_2)
 
-        data_alt_1 = data[self.alt_character_1.character_id]
-        expected_alt_1 = {
-            "contact_id": 1007,
-            "contact_name": "James Gordon",
-            "contact_icon_url": "https://images.evetech.net/characters/1007/portrait?size=32",
-            "corporation_id": 2004,
-            "corporation_name": "Metro Police",
-            "corporation_ticker": "MP",
-            "alliance_id": None,
-            "alliance_name": "",
+    @patch(MODULE_PATH + ".compose_standing_requests_data")
+    def test_manage_revocations_list(self, mock_compose_standing_requests_data):
+        # given
+        contact_id = 90_000_001
+        contact_name = "Bruce Wayne"
+        request_date = now()
+        obj_1 = {
+            "contact_id": contact_id,
+            "contact_name": contact_name,
+            "contact_icon_url": "",
+            "contact_name_html": {
+                "display": "",
+                "sort": "",
+            },
+            "corporation_id": 98_000_000,
+            "corporation_name": "Wayne Technologies",
+            "corporation_ticker": "WYT",
+            "alliance_id": 99_000_001,
+            "alliance_name": "Wayne Enterprises",
+            "organization_html": "",
+            "request_date": request_date,
+            "action_date": now(),
             "has_scopes": True,
-            "request_date": standing_request.request_date,
-            "action_date": None,
             "state": "Member",
-            "main_character_name": "Peter Parker",
-            "main_character_ticker": "WYE",
-            "main_character_icon_url": "https://images.evetech.net/characters/1002/portrait?size=32",
-            "actioned": False,
-            "is_effective": False,
-            "is_corporation": False,
-            "is_character": True,
-            "action_by": "(System)",
-            "reason": None,
+            "reason": "",
             "labels": [],
-        }
-        self.assertPartialDictEqual(data_alt_1, expected_alt_1)
-
-    def test_request_corporation(self, mock_esi, mock_cache):
-        # given
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
-        )
-        mock_esi.client.Universe.post_universe_names.side_effect = (
-            esi_post_universe_names
-        )
-        mock_cache.get.return_value = None
-        alt_id = self.alt_character_1.corporation_id
-        standing_request = StandingRequest.objects.get_or_create_2(
-            self.user_requestor,
-            alt_id,
-            StandingRequest.ContactType.CORPORATION,
-        )
-        self.client.force_login(self.user_manager)
-
-        # when
-        response = self.client.get(reverse("standingsrequests:manage_requests_list"))
-
-        # then
-        self.assertEqual(response.status_code, 200)
-        data = {obj["contact_id"]: obj for obj in response.context.dicts[3]["requests"]}
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
-
-        expected_alt_1 = {
-            "contact_id": 2004,
-            "contact_name": "Metro Police",
-            "contact_icon_url": "https://images.evetech.net/corporations/2004/logo?size=32",
-            "corporation_id": 2004,
-            "corporation_name": "Metro Police",
-            "corporation_ticker": "MP",
-            "alliance_id": None,
-            "alliance_name": "",
-            "has_scopes": True,
-            "request_date": standing_request.request_date,
-            "action_date": None,
-            "state": "Member",
-            "main_character_name": "Peter Parker",
-            "main_character_ticker": "WYE",
-            "main_character_icon_url": "https://images.evetech.net/characters/1002/portrait?size=32",
-            "actioned": False,
-            "is_effective": False,
-            "is_corporation": True,
-            "is_character": False,
-            "action_by": "(System)",
-            "reason": None,
-            "labels": [],
-        }
-        self.assertPartialDictEqual(data[alt_id], expected_alt_1)
-
-
-@patch(HELPERS_EVECORPORATION_PATH + ".cache")
-@patch(HELPERS_EVECORPORATION_PATH + ".esi")
-class TestViewManageRevocations(TestViewPagesBase):
-    def test_should_show_character_revocation(self, mock_esi, mock_cache):
-        # given
-        alt_character = EveCharacter.objects.get(character_id=1110)
-        alt_id = alt_character.character_id
-        self._create_standing_for_alt(alt_character)
-        standing_request = StandingRevocation.objects.add_revocation(
-            alt_id,
-            StandingRevocation.ContactType.CHARACTER,
-            user=self.user_requestor,
-            reason=StandingRevocation.Reason.LOST_PERMISSION,
-        )
-        self.client.force_login(self.user_manager)
-
-        # when
-        response = self.client.get(reverse("standingsrequests:manage_revocations_list"))
-
-        # then
-        self.assertEqual(response.status_code, 200)
-        data = {
-            obj["contact_id"]: obj for obj in response.context.dicts[3]["revocations"]
-        }
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
-
-        data_alt_1 = data[alt_id]
-        expected_alt_1 = {
-            "contact_id": 1110,
-            "contact_name": "Phil Coulson",
-            "contact_icon_url": "https://images.evetech.net/characters/1110/portrait?size=32",
-            "corporation_id": 2110,
-            "corporation_name": "Shield",
-            "corporation_ticker": "SH",
-            "alliance_id": None,
-            "alliance_name": "",
-            "has_scopes": False,
-            "request_date": standing_request.request_date,
-            "action_date": None,
-            "state": "Member",
-            "main_character_name": "Peter Parker",
-            "main_character_ticker": "WYE",
-            "main_character_icon_url": "https://images.evetech.net/characters/1002/portrait?size=32",
-            "actioned": False,
-            "is_effective": False,
+            "main_character_name": "Bruce Wayne",
+            "main_character_ticker": "WYT",
+            "main_character_icon_url": "url",
+            "main_character_html": "Bruce Wayne",
+            "actioned": "",
+            "is_effective": True,
             "is_corporation": False,
             "is_character": True,
-            "action_by": "(System)",
-            "reason": "Character owner has lost permission",
-            "labels": ["red", "yellow"],
+            "action_by": "",
         }
-        self.assertPartialDictEqual(data_alt_1, expected_alt_1)
+        mock_compose_standing_requests_data.return_value = [obj_1]
+        self.client.force_login(UserMainApproverFactory())
 
-    def test_revoke_corporation(self, mock_esi, mock_cache):
+        # when
+        response = self.client.get(reverse("standingsrequests:manage_revocations_list"))
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(len(response.context["revocations"]), 1)
+        obj_2 = response.context["revocations"].pop()
+        self.assertDictEqual(obj_1, obj_2)
+
+
+@patch(MODULE_PATH + ".notify")
+@patch(MODULE_PATH + ".RequestLogEntry.objects.create_from_standing_request")
+class TestManageRequestsWrite(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.factory = RequestFactory()
+
+    def test_should_mark_as_actioned_when_sr_found(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
         # given
-        mock_Corporation = mock_esi.client.Corporation
-        mock_Corporation.get_corporations_corporation_id.side_effect = (
-            esi_get_corporations_corporation_id
+        sr = StandingRequestFactory()
+        user = UserMainApproverFactory()
+        request = self.factory.put(
+            reverse(
+                "standingsrequests:manage_requests_write",
+                kwargs={"contact_id": sr.contact_id},
+            )
         )
-        mock_esi.client.Universe.post_universe_names.side_effect = (
-            esi_post_universe_names
-        )
-        mock_cache.get.return_value = None
-        alt_id = self.alt_corporation.corporation_id
-        self._create_standing_for_alt(self.alt_corporation)
-        standing_request = StandingRevocation.objects.add_revocation(
-            alt_id,
-            StandingRevocation.ContactType.CORPORATION,
-            user=self.user_requestor,
-        )
-        self.client.force_login(self.user_manager)
+        request.user = user
 
         # when
-        response = self.client.get(reverse("standingsrequests:manage_revocations_list"))
+        response = manage_requests.manage_requests_write(request, sr.contact_id)
 
         # then
-        self.assertEqual(response.status_code, 200)
-        data = {
-            obj["contact_id"]: obj for obj in response.context.dicts[3]["revocations"]
-        }
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        sr.refresh_from_db()
+        self.assertEqual(sr.action_by, user)
+        self.assertTrue(sr.action_date)
+        self.assertTrue(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
 
-        expected_alt_1 = {
-            "contact_id": 2004,
-            "contact_name": "Metro Police",
-            "contact_icon_url": "https://images.evetech.net/corporations/2004/logo?size=32",
-            "corporation_id": 2004,
-            "corporation_name": "Metro Police",
-            "corporation_ticker": "MP",
-            "alliance_id": None,
-            "alliance_name": "",
-            "has_scopes": True,
-            "request_date": standing_request.request_date,
-            "action_date": None,
-            "state": "Member",
-            "main_character_name": "Peter Parker",
-            "main_character_ticker": "WYE",
-            "main_character_icon_url": "https://images.evetech.net/characters/1002/portrait?size=32",
-            "actioned": False,
-            "is_effective": False,
-            "is_corporation": True,
-            "is_character": False,
-            "action_by": "(System)",
-            "reason": "None recorded",
-            "labels": [],
-        }
-        self.assertPartialDictEqual(data[alt_id], expected_alt_1)
-
-    def test_can_show_user_without_main(self, mock_esi, mock_cache):
+    def test_should_return_not_found_when_sr_not_found(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
         # given
-        alt_id = self.alt_character_3.character_id
-        self._create_standing_for_alt(self.alt_character_3)
-        standing_request = StandingRevocation.objects.add_revocation(
-            alt_id,
-            StandingRevocation.ContactType.CHARACTER,
-            user=self.user_former_member,
+        user = UserMainApproverFactory()
+        contact_id = 666
+        request = self.factory.put(
+            reverse(
+                "standingsrequests:manage_requests_write",
+                kwargs={"contact_id": contact_id},
+            )
         )
-        self.client.force_login(self.user_manager)
+        request.user = user
 
         # when
-        response = self.client.get(reverse("standingsrequests:manage_revocations_list"))
+        response = manage_requests.manage_requests_write(request, contact_id)
 
         # then
-        self.assertEqual(response.status_code, 200)
-        data = {
-            obj["contact_id"]: obj for obj in response.context.dicts[3]["revocations"]
-        }
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertFalse(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
 
-        data_alt_1 = data[alt_id]
-        expected_alt_1 = {
-            "contact_id": 1010,
-            "contact_name": "Natasha Romanoff",
-            "contact_icon_url": "https://images.evetech.net/characters/1010/portrait?size=32",
-            "corporation_id": 2102,
-            "corporation_name": "Lexcorp",
-            "corporation_ticker": "LEX",
-            "alliance_id": None,
-            "alliance_name": "",
-            "has_scopes": False,
-            "request_date": standing_request.request_date,
-            "action_date": None,
-            "state": "Guest",
-            "main_character_name": "-",
-            "main_character_ticker": "-",
-            "main_character_icon_url": "-",
-            "actioned": False,
-            "is_effective": False,
-            "is_corporation": False,
-            "is_character": True,
-            "action_by": "(System)",
-            "reason": "None recorded",
-            "labels": ["red"],
-        }
-        self.assertPartialDictEqual(data_alt_1, expected_alt_1)
+    def test_should_delete_sr_when_found_and_not_notify_requestor(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        sr = StandingRequestFactory()
 
-    def test_can_handle_requests_without_user(self, mock_esi, mock_cache):
-        # setup
-        alt_id = 1006
-        my_alt = EveCharacter.objects.get(character_id=alt_id)
-        self._create_standing_for_alt(my_alt)
-        standing_request = StandingRevocation.objects.add_revocation(
-            alt_id, StandingRevocation.ContactType.CHARACTER
+        user = UserMainApproverFactory()
+        request = self.factory.delete(
+            reverse(
+                "standingsrequests:manage_requests_write",
+                kwargs={"contact_id": sr.contact_id},
+            )
         )
-        self.client.force_login(self.user_manager)
+        request.user = user
 
         # when
-        response = self.client.get(reverse("standingsrequests:manage_revocations_list"))
+        with patch(MODULE_PATH + ".SR_NOTIFICATIONS_ENABLED", False):
+            response = manage_requests.manage_requests_write(request, sr.contact_id)
 
         # then
-        self.assertEqual(response.status_code, 200)
-        data = {
-            obj["contact_id"]: obj for obj in response.context.dicts[3]["revocations"]
-        }
-        expected = {alt_id}
-        self.assertSetEqual(set(data.keys()), expected)
-        self.maxDiff = None
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertFalse(
+            StandingRequest.objects.filter(contact_id=sr.contact_id).exists()
+        )
+        self.assertTrue(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
 
-        data_alt_1 = data[alt_id]
-        expected_alt_1 = {
-            "contact_id": alt_id,
-            "contact_name": "Steven Roger",
-            "contact_icon_url": f"https://images.evetech.net/characters/{alt_id}/portrait?size=32",
-            "corporation_id": 2003,
-            "corporation_name": "CatCo Worldwide Media",
-            "corporation_ticker": "CC",
-            "alliance_id": None,
-            "alliance_name": "",
-            "has_scopes": False,
-            "request_date": standing_request.request_date,
-            "action_date": None,
-            "state": "-",
-            "main_character_name": "-",
-            "main_character_ticker": "-",
-            "main_character_icon_url": "-",
-            "actioned": False,
-            "is_effective": False,
-            "is_corporation": False,
-            "is_character": True,
-            "action_by": "(System)",
-            "reason": "None recorded",
-            "labels": ["yellow"],
-        }
-        self.assertPartialDictEqual(data_alt_1, expected_alt_1)
+    def test_should_delete_sr_when_found_and_notify_requestor(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        sr = StandingRequestFactory()
+        EveEntityCharacterFactory(id=sr.contact_id)
+        user = UserMainApproverFactory()
+        request = self.factory.delete(
+            reverse(
+                "standingsrequests:manage_requests_write",
+                kwargs={"contact_id": sr.contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        with patch(MODULE_PATH + ".SR_NOTIFICATIONS_ENABLED", True):
+            response = manage_requests.manage_requests_write(request, sr.contact_id)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertFalse(
+            StandingRequest.objects.filter(contact_id=sr.contact_id).exists()
+        )
+        self.assertTrue(mock_create_from_standing_request.called)
+        self.assertTrue(mock_notify.called)
+
+    def test_should_return_not_found_when_sr_for_delete_not_found(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        user = UserMainApproverFactory()
+        contact_id = 666
+        request = self.factory.delete(
+            reverse(
+                "standingsrequests:manage_requests_write",
+                kwargs={"contact_id": contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        with self.assertRaises(Http404):
+            manage_requests.manage_requests_write(request, contact_id)
+
+        # then
+        self.assertFalse(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
+
+
+@patch(MODULE_PATH + ".notify")
+@patch(MODULE_PATH + ".RequestLogEntry.objects.create_from_standing_request")
+class TestManageRevocationsWrite(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.factory = RequestFactory()
+
+    def test_should_mark_as_actioned_when_sr_found(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        sr = StandingRevocationFactory()
+        user = UserMainApproverFactory()
+        request = self.factory.put(
+            reverse(
+                "standingsrequests:manage_revocations_write",
+                kwargs={"contact_id": sr.contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        response = manage_requests.manage_revocations_write(request, sr.contact_id)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        sr.refresh_from_db()
+        self.assertEqual(sr.action_by, user)
+        self.assertTrue(sr.action_date)
+        self.assertTrue(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
+
+    def test_should_return_not_found_when_sr_not_found(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        user = UserMainApproverFactory()
+        contact_id = 666
+        request = self.factory.put(
+            reverse(
+                "standingsrequests:manage_revocations_write",
+                kwargs={"contact_id": contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        response = manage_requests.manage_revocations_write(request, contact_id)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertFalse(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
+
+    def test_should_delete_sr_when_found_and_not_notify_requestor(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        sr = StandingRevocationFactory()
+
+        user = UserMainApproverFactory()
+        request = self.factory.delete(
+            reverse(
+                "standingsrequests:manage_revocations_write",
+                kwargs={"contact_id": sr.contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        with patch(MODULE_PATH + ".SR_NOTIFICATIONS_ENABLED", False):
+            response = manage_requests.manage_revocations_write(request, sr.contact_id)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertFalse(
+            StandingRevocation.objects.filter(contact_id=sr.contact_id).exists()
+        )
+        self.assertTrue(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
+
+    def test_should_delete_sr_when_found_and_notify_requestor(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        sr = StandingRevocationFactory()
+        EveEntityCharacterFactory(id=sr.contact_id)
+        user = UserMainApproverFactory()
+        request = self.factory.delete(
+            reverse(
+                "standingsrequests:manage_revocations_write",
+                kwargs={"contact_id": sr.contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        with patch(MODULE_PATH + ".SR_NOTIFICATIONS_ENABLED", True):
+            response = manage_requests.manage_revocations_write(request, sr.contact_id)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertFalse(
+            StandingRequest.objects.filter(contact_id=sr.contact_id).exists()
+        )
+        self.assertTrue(mock_create_from_standing_request.called)
+        self.assertTrue(mock_notify.called)
+
+    def test_should_return_not_found_when_sr_for_delete_not_found(
+        self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
+    ):
+        # given
+        user = UserMainApproverFactory()
+        contact_id = 666
+        request = self.factory.delete(
+            reverse(
+                "standingsrequests:manage_revocations_write",
+                kwargs={"contact_id": contact_id},
+            )
+        )
+        request.user = user
+
+        # when
+        with self.assertRaises(Http404):
+            manage_requests.manage_revocations_write(request, contact_id)
+
+        # then
+        self.assertFalse(mock_create_from_standing_request.called)
+        self.assertFalse(mock_notify.called)
+
+
+@patch(MODULE_PATH + ".app_config.standings_source_entity")
+class TestManageStandings(NoSocketsTestCase):
+    def test_can_open_page(self, mock_standings_source_entity: MagicMock):
+        # given
+        organization = EveEntityAllianceFactory()
+        mock_standings_source_entity.return_value = organization
+        StandingRequestFactory()
+        StandingRequestFactory()
+        StandingRevocationFactory()
+        user = UserMainApproverFactory()
+        self.client.force_login(user)
+
+        # when
+        response = self.client.get(reverse("standingsrequests:manage"))
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.context["requests_count"], 2)
+        self.assertEqual(response.context["revocations_count"], 1)
+        self.assertEqual(response.context["organization"], organization)

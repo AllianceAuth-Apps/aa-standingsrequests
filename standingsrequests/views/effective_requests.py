@@ -1,5 +1,4 @@
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db import models
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.html import format_html
@@ -22,9 +21,15 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 @login_required
 @permission_required("standingsrequests.affect_standings")
 def effective_requests(request):
+    requests_count = (
+        StandingRequest.objects.filter(is_effective=True)
+        .select_related("user__profile")
+        .order_by("-request_date")
+        .count()
+    )
     context = {
         "organization": app_config.standings_source_entity(),
-        "requests_count": _standing_requests_to_view().count(),
+        "requests_count": requests_count,
     }
     return render(
         request,
@@ -37,9 +42,12 @@ def effective_requests(request):
 @login_required
 @permission_required("standingsrequests.affect_standings")
 def effective_requests_data(request):
-    requests_data = compose_standing_requests_data(
-        _standing_requests_to_view(), quick_check=True
+    requests = (
+        StandingRequest.objects.filter(is_effective=True)
+        .select_related("user__profile")
+        .order_by("-request_date")
     )
+    requests_data = compose_standing_requests_data(requests, quick_check=True)
     for req in requests_data:
         req["request_date_str"] = {
             "display": req["request_date"].strftime(DATETIME_FORMAT_PY),
@@ -76,11 +84,3 @@ def effective_requests_data(request):
         del req["is_corporation"]
         del req["actioned"]
     return JsonResponse({"data": requests_data})
-
-
-def _standing_requests_to_view() -> models.QuerySet:
-    return (
-        StandingRequest.objects.filter(is_effective=True)
-        .select_related("user__profile")
-        .order_by("-request_date")
-    )

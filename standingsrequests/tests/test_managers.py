@@ -33,7 +33,6 @@ from standingsrequests.models import (
     StandingRequest,
     StandingRevocation,
 )
-from standingsrequests.tests.helpers_2 import TestCaseWithClearCache
 from standingsrequests.tests.testdata.entity_type_ids import (
     CHARACTER_TYPE_ID,
     CORPORATION_TYPE_ID,
@@ -43,7 +42,7 @@ from standingsrequests.tests.testdata.factories import (
     ContactCharacterFactory,
     ContactSetFactory,
     StandingRequestFactory,
-    StandingRevocationCharacterFactory,
+    StandingRevocationFactory,
     make_esi_url,
 )
 from standingsrequests.tests.testdata.my_test_data import (
@@ -54,6 +53,7 @@ from standingsrequests.tests.testdata.my_test_data import (
     create_standings_char,
     load_eve_entities,
 )
+from standingsrequests.tests.utils_2 import TestCaseWithClearCache
 
 CORE_PATH = "standingsrequests.core"
 MANAGERS_PATH = "standingsrequests.managers"
@@ -605,7 +605,7 @@ class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
         alliance_rq = EveEntityAllianceFactory()
         faction_rq = EveEntityFactionFactory()
 
-        rv = StandingRevocationCharacterFactory()
+        rv = StandingRevocationFactory()
         EveEntityCharacterFactory(id=rv.contact_id)
         corporation_rv = EveEntityCorporationFactory()
         alliance_rv = EveEntityAllianceFactory()
@@ -708,7 +708,7 @@ class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
         alliance_rq = EveEntityAllianceFactory()
         faction_rq = EveEntityFactionFactory()
 
-        rv = StandingRevocationCharacterFactory()
+        rv = StandingRevocationFactory()
         character_rv = EveEntityCharacterFactory(id=rv.contact_id)
         ca_rv = CharacterAffiliationFactory(character=character_rv)
         corporation_rv = EveEntityCorporationFactory()

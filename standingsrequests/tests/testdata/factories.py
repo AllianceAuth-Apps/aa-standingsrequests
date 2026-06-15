@@ -208,11 +208,17 @@ class StandingRequestFactory(
     user = factory.SubFactory(UserMainRequestorFactory)
 
 
-class StandingRevocationCharacterFactory(
+class StandingRevocationFactory(
     factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[StandingRevocation]
 ):
     class Meta:
         model = StandingRevocation
+
+    class Params:
+        is_corporation = factory.Trait(
+            contact_id=factory.fuzzy.FuzzyInteger(98_800_001, 98_899_999),
+            contact_type_id=ContactTypeId.CORPORATION,
+        )
 
     action_by = None
     action_date = None
