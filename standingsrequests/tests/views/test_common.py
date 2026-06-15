@@ -1,6 +1,10 @@
 from unittest.mock import patch
 
-from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
+from app_utils.testdata_factories import (
+    EveCharacterFactory,
+    EveCorporationInfoFactory,
+    UserFactory,
+)
 from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
 from standingsrequests.models import StandingRequest, StandingRevocation
@@ -195,3 +199,39 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         self.assertCountEqual(obj["labels"], [])
         self.assertEqual(obj["main_character_name"], main.character_name)
         self.assertEqual(obj["state"], state.name)
+
+
+class MainCharacterInfo_CreateFromUser(NoSocketsTestCase):
+    def test_should_create_when_user_is_valid(self):
+        # given
+        character = EveCharacterFactory()
+        user = UserMainRequestorFactory(main_character__character=character)
+
+        # when
+        got = _common.MainCharacterInfo.create_from_user(user)
+
+        # then
+        self.assertEqual(got.character_name, character.character_name)
+        self.assertEqual(got.ticker, character.corporation_ticker)
+        self.assertNotEqual(got.icon_url, "-")
+
+    def test_should_return_empty_when_no_user_given(self):
+        # when
+        got = _common.MainCharacterInfo.create_from_user(None)
+
+        # then
+        self.assertEqual(got.character_name, "-")
+        self.assertEqual(got.ticker, "-")
+        self.assertEqual(got.icon_url, "-")
+
+    def test_should_return_empty_when_user_has_no_main(self):
+        # given
+        user = UserFactory()
+
+        # when
+        got = _common.MainCharacterInfo.create_from_user(user)
+
+        # then
+        self.assertEqual(got.character_name, "-")
+        self.assertEqual(got.ticker, "-")
+        self.assertEqual(got.icon_url, "-")
