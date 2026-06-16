@@ -23,14 +23,13 @@ from standingsrequests.models import (
     CorporationDetails,
 )
 
-TEST_STANDINGS_API_CHARID = 1001
-TEST_STANDINGS_API_CHARNAME = "Bruce Wayne"
-TEST_STANDINGS_CORPORATION_ID = 2001
-TEST_STANDINGS_CORPORATION_NAME = "Wayne Technologies"
-TEST_STANDINGS_ALLIANCE_ID = 3001
-TEST_STANDINGS_ALLIANCE_NAME = "Wayne Enterprises"
-
-TEST_SCOPE = "publicData"
+STANDINGS_ALLIANCE_ID = 3001
+STANDINGS_ALLIANCE_NAME = "Wayne Enterprises"
+STANDINGS_API_CHARID = 1001
+STANDINGS_API_CHARNAME = "Bruce Wayne"
+STANDINGS_CORPORATION_ID = 2001
+STANDINGS_CORPORATION_NAME = "Wayne Technologies"
+STANDINGS_SCOPE = "publicData"
 
 
 ##########################
@@ -169,13 +168,13 @@ def esi_get_alliances_alliance_id_contacts(*args, **kwargs) -> Any:
 
 def create_standings_char():
     character, _ = EveCharacter.objects.get_or_create(
-        character_id=TEST_STANDINGS_API_CHARID,
+        character_id=STANDINGS_API_CHARID,
         defaults={
-            "character_name": TEST_STANDINGS_API_CHARNAME,
-            "corporation_id": TEST_STANDINGS_CORPORATION_ID,
-            "corporation_name": TEST_STANDINGS_CORPORATION_ID,
-            "alliance_id": TEST_STANDINGS_ALLIANCE_ID,
-            "alliance_name": TEST_STANDINGS_ALLIANCE_NAME,
+            "character_name": STANDINGS_API_CHARNAME,
+            "corporation_id": STANDINGS_CORPORATION_ID,
+            "corporation_name": STANDINGS_CORPORATION_ID,
+            "alliance_id": STANDINGS_ALLIANCE_ID,
+            "alliance_name": STANDINGS_ALLIANCE_NAME,
         },
     )
     return character

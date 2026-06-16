@@ -1,56 +1,45 @@
-from allianceauth.eveonline.models import EveCharacter
 from app_utils.testing import NoSocketsTestCase
 
 from standingsrequests.helpers.evecharacter import EveCharacterHelper
-from standingsrequests.tests.testdata.my_test_data import (
-    create_contacts_set,
-    create_entity,
-    generate_eve_entities_from_allianceauth,
-    get_my_test_data,
-)
+from standingsrequests.tests.testdata.factories import CharacterAffiliationFactory
 
 MODULE_PATH = "standingsrequests.helpers.evecorporation"
 
 
-class TestEveCharacter(NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        create_contacts_set()
-        create_entity(EveCharacter, 1001)
-        generate_eve_entities_from_allianceauth()
+class TestEveCharacterHelper(NoSocketsTestCase):
+    def test_should_initialize_from_character_affiliation_with_alliance(self):
+        # given
+        ca = CharacterAffiliationFactory()
 
-    def test_init_with_data_has_alliance(self):
-        character = EveCharacterHelper(character_id=1002)
-        self.assertEqual(character.character_id, 1002)
-        self.assertEqual(character.character_name, "Peter Parker")
-        self.assertEqual(character.corporation_id, 2001)
-        self.assertEqual(character.corporation_name, "Wayne Technologies")
-        self.assertEqual(character.alliance_id, 3001)
-        self.assertEqual(character.alliance_name, "Wayne Enterprises")
+        # when
+        character = EveCharacterHelper(character_id=ca.character.id)
 
-    def test_init_with_data_has_no_alliance(self):
-        character = EveCharacterHelper(character_id=1004)
-        self.assertEqual(character.character_id, 1004)
-        self.assertEqual(character.character_name, "Kara Danvers")
-        self.assertEqual(character.corporation_id, 2003)
-        self.assertEqual(character.corporation_name, "CatCo Worldwide Media")
+        # then
+        self.assertEqual(character.character_id, ca.character.id)
+        self.assertEqual(character.character_name, ca.character.name)
+        self.assertEqual(character.corporation_id, ca.corporation.id)
+        self.assertEqual(character.corporation_name, ca.corporation.name)
+        self.assertEqual(character.alliance_id, ca.alliance.id)
+        self.assertEqual(character.alliance_name, ca.alliance.name)
+
+    def test_should_initialize_from_character_affiliation_without_alliance(self):
+        # given
+        ca = CharacterAffiliationFactory(alliance=None)
+
+        # when
+        character = EveCharacterHelper(character_id=ca.character.id)
+
+        # then
+        self.assertEqual(character.character_id, ca.character.id)
+        self.assertEqual(character.character_name, ca.character.name)
+        self.assertEqual(character.corporation_id, ca.corporation.id)
+        self.assertEqual(character.corporation_name, ca.corporation.name)
         self.assertIsNone(character.alliance_id)
         self.assertIsNone(character.alliance_name)
 
-    def test_init_with_data_has_no_main(self):
-        character = EveCharacterHelper(character_id=1001)
-        self.assertEqual(character.character_id, 1001)
-        self.assertEqual(character.character_name, "Bruce Wayne")
-        self.assertEqual(character.corporation_id, 2001)
-        self.assertEqual(character.corporation_name, "Wayne Technologies")
-        self.assertEqual(character.alliance_id, 3001)
-        self.assertEqual(character.alliance_name, "Wayne Enterprises")
+    def test_should_initialize_without_character_affiliation(self):
+        # when
+        character = EveCharacterHelper(1001)
 
-    def test_init_without_data(self):
-        EveCharacter.objects.filter(character_id=1001).delete()
-        data = get_my_test_data()["EveCharacter"]["1001"]
-        EveCharacter.objects.create(**data)
-        character = EveCharacterHelper(character_id=1001)
+        # then
         self.assertEqual(character.character_id, 1001)
-        self.assertEqual(character.character_name, "Bruce Wayne")

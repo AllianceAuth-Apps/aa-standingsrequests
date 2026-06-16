@@ -3,22 +3,17 @@ from unittest.mock import patch
 
 import pook
 
-from django.test import TestCase
 from eveuniverse.tests.testdata.factories_2 import EveEntityAllianceFactory
 
-from allianceauth.eveonline.models import EveCharacter
-from app_utils.testing import (
-    NoSocketsTestCase,
-    add_character_to_user,
-    create_user_from_evecharacter,
-)
+from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
+from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.helpers.evecorporation import EveCorporation
+from standingsrequests.helpers.evecorporation import EveCorporationHelper
 from standingsrequests.tests.testdata.factories import (
-    EveCorporationFactory,
+    EveCorporationHelperFactory,
+    UserMainRequestorFactory,
     make_esi_url,
 )
-from standingsrequests.tests.testdata.my_test_data import create_eve_objects
 from standingsrequests.tests.utils_2 import TestCaseWithClearCache
 
 EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
@@ -28,7 +23,7 @@ MODELS_PATH = "standingsrequests.models"
 class TestEveCorporation(NoSocketsTestCase):
     def test_can_create(self):
         # given
-        corporation = EveCorporationFactory(
+        corporation = EveCorporationHelperFactory(
             corporation_id=98000001,
             corporation_name="Wayne Technologies",
             ticker="WYT",
@@ -45,10 +40,10 @@ class TestEveCorporation(NoSocketsTestCase):
         self.assertEqual(corporation.alliance_id, 99000001)
         self.assertEqual(corporation.alliance_name, "Wayne Enterprises")
 
-    def test_can_report_wheter_corp_is_npc(self):
+    def test_can_report_whether_corp_is_npc(self):
         cases = [
-            (EveCorporationFactory(corporation_id=1000134), True),
-            (EveCorporationFactory(corporation_id=98000001), False),
+            (EveCorporationHelperFactory(corporation_id=1000134), True),
+            (EveCorporationHelperFactory(corporation_id=98000001), False),
         ]
         for corporation, want in cases:
             self.assertEqual(corporation.is_npc, want)
@@ -83,7 +78,7 @@ class TestEveCorporation_GetByID(TestCaseWithClearCache):
         mock_cache.get.return_value = None
 
         # when
-        got = EveCorporation.get_by_id(corporation_id)
+        got = EveCorporationHelper.get_by_id(corporation_id)
 
         # then
         self.assertEqual(got.alliance_id, alliance_id)
@@ -108,7 +103,7 @@ class TestEveCorporation_GetByID(TestCaseWithClearCache):
         mock_cache.get.return_value = None
 
         # when
-        obj = EveCorporation.get_by_id(corporation_id)
+        obj = EveCorporationHelper.get_by_id(corporation_id)
 
         # then
         self.assertIsNone(obj)
@@ -116,11 +111,11 @@ class TestEveCorporation_GetByID(TestCaseWithClearCache):
     @pook.on
     def test_get_corp_by_id_in_cache(self, mock_cache):
         # given
-        corporation = EveCorporationFactory()
+        corporation = EveCorporationHelperFactory()
         mock_cache.get.return_value = corporation
 
         # when
-        obj = EveCorporation.get_by_id(corporation.corporation_id)
+        obj = EveCorporationHelper.get_by_id(corporation.corporation_id)
 
         # then
         self.assertEqual(obj, corporation)
@@ -153,7 +148,7 @@ class TestEveCorporation_FetchCorporationFromApi(TestCaseWithClearCache):
         )
 
         # when
-        got = EveCorporation.fetch_corporation_from_api(corporation_id)
+        got = EveCorporationHelper.fetch_corporation_from_api(corporation_id)
 
         # then
         self.assertEqual(got.alliance_id, alliance_id)
@@ -175,7 +170,7 @@ class TestEveCorporation_FetchCorporationFromApi(TestCaseWithClearCache):
         )
 
         # when
-        obj = EveCorporation.get_by_id(corporation_id)
+        obj = EveCorporationHelper.get_by_id(corporation_id)
 
         # then
         self.assertIsNone(obj)
@@ -222,7 +217,9 @@ class TestEveCorporation_GetManyById(TestCaseWithClearCache):
         )
 
         # when
-        result = EveCorporation.get_many_by_id([corporation_id_1, corporation_id_2])
+        result = EveCorporationHelper.get_many_by_id(
+            [corporation_id_1, corporation_id_2]
+        )
 
         # then
         got = {obj.corporation_id for obj in result}
@@ -230,29 +227,86 @@ class TestEveCorporation_GetManyById(TestCaseWithClearCache):
         self.assertTrue(pook.isdone())
 
 
-class TestEveCorporation_MemberTokensCountForUser(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        create_eve_objects()
-
+class TestEveCorporation_MemberTokensCountForUser(NoSocketsTestCase):
     def test_should_count_valid_characters_only(self):
         # given
-        user, _ = create_user_from_evecharacter(1001, scopes=["special-scope"])
+        scope_name = "special-scope"
+        corporation = EveCorporationInfoFactory()
+        corporation_2 = EveCorporationHelperFactory(corporation=corporation)
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
         add_character_to_user(
-            user, EveCharacter.objects.get(character_id=1002), scopes=["special-scope"]
+            user, EveCharacterFactory(corporation=corporation), scopes=[scope_name]
         )  # same corp and valid scope
         add_character_to_user(
-            user, EveCharacter.objects.get(character_id=1003)
+            user, EveCharacterFactory(corporation=corporation)
         )  # same corp, but invalid scope
-        add_character_to_user(
-            user, EveCharacter.objects.get(character_id=1006)
-        )  # different corp
-        obj = EveCorporation(corporation_id=2001)
+        add_character_to_user(user, EveCharacterFactory())  # different corp
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {"special-scope"}}):
-            result = obj.member_tokens_count_for_user(user)
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+            result = corporation_2.member_tokens_count_for_user(user)
 
         # then
         self.assertEqual(result, 2)
+
+
+class TestEveCorporation_UserHasAllMemberTokens(NoSocketsTestCase):
+    def test_should_confirm_when_user_has_all_tokens(self):
+        # given
+        scope_name = "special-scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        corporation_2 = EveCorporationHelperFactory(corporation=corporation)
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        add_character_to_user(
+            user, EveCharacterFactory(corporation=corporation), scopes=[scope_name]
+        )  # same corp and valid scope
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+            got = corporation_2.user_has_all_member_tokens(user)
+
+        # then
+        self.assertTrue(got)
+
+    def test_should_deny_when_not_all_members_in_auth(self):
+        # given
+        scope_name = "special-scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        corporation_2 = EveCorporationHelperFactory(corporation=corporation)
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+            got = corporation_2.user_has_all_member_tokens(user)
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_deny_when_not_all_members_with_correct_scope(self):
+        # given
+        scope_name = "special-scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        corporation_2 = EveCorporationHelperFactory(corporation=corporation)
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        add_character_to_user(
+            user, EveCharacterFactory(corporation=corporation), scopes=["invalid-scope"]
+        )
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+            got = corporation_2.user_has_all_member_tokens(user)
+
+        # then
+        self.assertFalse(got)

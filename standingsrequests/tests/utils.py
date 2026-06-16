@@ -18,7 +18,7 @@ from app_utils.testing import add_character_to_user, response_text
 from standingsrequests.core.contact_types import ContactTypeId
 from standingsrequests.models import Contact, StandingRequest
 from standingsrequests.tests.testdata.my_test_data import (
-    TEST_SCOPE,
+    STANDINGS_SCOPE,
     create_contacts_set,
     create_eve_objects,
 )
@@ -71,13 +71,13 @@ class TestViewPagesBase(PartialDictEqualMixin, TestCase):
             cls.user_requestor,
             cls.main_character_1,
             is_main=True,
-            scopes=[TEST_SCOPE],
+            scopes=[STANDINGS_SCOPE],
         )
         cls.alt_character_1 = EveCharacter.objects.get(character_id=1007)
         add_character_to_user(
             cls.user_requestor,
             cls.alt_character_1,
-            scopes=[TEST_SCOPE],
+            scopes=[STANDINGS_SCOPE],
         )
         cls.alt_corporation = EveCorporationInfo.objects.get(
             corporation_id=cls.alt_character_1.corporation_id
@@ -86,7 +86,7 @@ class TestViewPagesBase(PartialDictEqualMixin, TestCase):
         add_character_to_user(
             cls.user_requestor,
             cls.alt_character_2,
-            scopes=[TEST_SCOPE],
+            scopes=[STANDINGS_SCOPE],
         )
 
         # Standing manager - can do everything
@@ -96,7 +96,7 @@ class TestViewPagesBase(PartialDictEqualMixin, TestCase):
             cls.user_manager,
             cls.main_character_2,
             is_main=True,
-            scopes=[TEST_SCOPE],
+            scopes=[STANDINGS_SCOPE],
         )
         cls.user_manager = AuthUtils.add_permission_to_user_by_name(
             "standingsrequests.affect_standings", cls.user_manager
@@ -112,7 +112,7 @@ class TestViewPagesBase(PartialDictEqualMixin, TestCase):
         add_character_to_user(
             cls.user_former_member,
             cls.alt_character_3,
-            scopes=[TEST_SCOPE],
+            scopes=[STANDINGS_SCOPE],
         )
 
     def _create_standing_for_alt(self, alt: Any) -> StandingRequest:

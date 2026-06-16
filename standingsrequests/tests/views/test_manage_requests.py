@@ -14,8 +14,8 @@ from app_utils.testing import NoSocketsTestCase
 
 from standingsrequests.models import StandingRequest, StandingRevocation
 from standingsrequests.tests.testdata.factories import (
-    StandingRequestFactory,
-    StandingRevocationFactory,
+    StandingRequestCharacterFactory,
+    StandingRevocationCharacterFactory,
     UserMainApproverFactory,
 )
 from standingsrequests.tests.utils_2 import TestCaseWithClearCache
@@ -134,7 +134,7 @@ class TestManageRequestsWrite(NoSocketsTestCase):
         self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
     ):
         # given
-        sr = StandingRequestFactory()
+        sr = StandingRequestCharacterFactory()
         user = UserMainApproverFactory()
         request = self.factory.put(
             reverse(
@@ -181,7 +181,7 @@ class TestManageRequestsWrite(NoSocketsTestCase):
         self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
     ):
         # given
-        sr = StandingRequestFactory()
+        sr = StandingRequestCharacterFactory()
 
         user = UserMainApproverFactory()
         request = self.factory.delete(
@@ -208,7 +208,7 @@ class TestManageRequestsWrite(NoSocketsTestCase):
         self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
     ):
         # given
-        sr = StandingRequestFactory()
+        sr = StandingRequestCharacterFactory()
         EveEntityCharacterFactory(id=sr.contact_id)
         user = UserMainApproverFactory()
         request = self.factory.delete(
@@ -266,7 +266,7 @@ class TestManageRevocationsWrite(NoSocketsTestCase):
         self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
     ):
         # given
-        sr = StandingRevocationFactory()
+        sr = StandingRevocationCharacterFactory()
         user = UserMainApproverFactory()
         request = self.factory.put(
             reverse(
@@ -313,7 +313,7 @@ class TestManageRevocationsWrite(NoSocketsTestCase):
         self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
     ):
         # given
-        sr = StandingRevocationFactory()
+        sr = StandingRevocationCharacterFactory()
 
         user = UserMainApproverFactory()
         request = self.factory.delete(
@@ -340,7 +340,7 @@ class TestManageRevocationsWrite(NoSocketsTestCase):
         self, mock_create_from_standing_request: MagicMock, mock_notify: MagicMock
     ):
         # given
-        sr = StandingRevocationFactory()
+        sr = StandingRevocationCharacterFactory()
         EveEntityCharacterFactory(id=sr.contact_id)
         user = UserMainApproverFactory()
         request = self.factory.delete(
@@ -392,9 +392,9 @@ class TestManageStandings(NoSocketsTestCase):
         # given
         organization = EveEntityAllianceFactory()
         mock_standings_source_entity.return_value = organization
-        StandingRequestFactory()
-        StandingRequestFactory()
-        StandingRevocationFactory()
+        StandingRequestCharacterFactory()
+        StandingRequestCharacterFactory()
+        StandingRevocationCharacterFactory()
         user = UserMainApproverFactory()
         self.client.force_login(user)
 

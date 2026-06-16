@@ -21,7 +21,7 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 MAX_WORKERS = 10
 
 
-class EveCorporation:
+class EveCorporationHelper:
     CACHE_PREFIX = "STANDINGS_REQUESTS_EVECORPORATION_"
     CACHE_TIME = 60 * 60  # 60 minutes
 
@@ -37,7 +37,7 @@ class EveCorporation:
     def __str__(self):
         return self.corporation_name
 
-    def __eq__(self, o: "EveCorporation") -> bool:
+    def __eq__(self, o: "EveCorporationHelper") -> bool:
         return (
             isinstance(o, type(self))
             and self.corporation_id == o.corporation_id
@@ -92,8 +92,8 @@ class EveCorporation:
         )
 
     def user_has_all_member_tokens(self, user: User, quick_check: bool = False) -> bool:
-        """returns True if given user owns same amount of token than there are
-        member characters in this corporation, else False
+        """Report whether a user owns same amount of tokens as there are
+        member characters in this corporation
 
         Params:
         - user: user owning the characters
@@ -111,7 +111,7 @@ class EveCorporation:
     @classmethod
     def get_by_id(
         cls, corporation_id: int, ignore_cache: bool = False
-    ) -> Optional["EveCorporation"]:
+    ) -> Optional["EveCorporationHelper"]:
         """Get a corporation from the cache or ESI if not cached
         Corps are cached for 3 hours
 
@@ -140,7 +140,7 @@ class EveCorporation:
     @classmethod
     def fetch_corporation_from_api(
         cls, corporation_id: int
-    ) -> Optional["EveCorporation"]:
+    ) -> Optional["EveCorporationHelper"]:
         logger.debug(
             "Attempting to fetch corporation from ESI with id %s", corporation_id
         )
@@ -168,7 +168,9 @@ class EveCorporation:
         return cls(**args)
 
     @classmethod
-    def get_many_by_id(cls, corporation_ids: Iterable[int]) -> List["EveCorporation"]:
+    def get_many_by_id(
+        cls, corporation_ids: Iterable[int]
+    ) -> List["EveCorporationHelper"]:
         """Returns multiple corporations by ID
 
         Fetches requested corporations from cache or API as needed.

@@ -15,15 +15,15 @@ from app_utils.testing import (
 )
 
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import EveCorporation
+from standingsrequests.helpers.evecorporation import EveCorporationHelper
 from standingsrequests.models import (
     RequestLogEntry,
     StandingRequest,
     StandingRevocation,
 )
 from standingsrequests.tests.testdata.my_test_data import (
-    TEST_STANDINGS_API_CHARID,
-    TEST_STANDINGS_API_CHARNAME,
+    STANDINGS_API_CHARID,
+    STANDINGS_API_CHARNAME,
     create_contacts_set,
     create_entity,
     create_standings_char,
@@ -40,7 +40,7 @@ HELPERS_EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
 VIEWS_PATH = "standingsrequests.views.create_requests"
 
 
-@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
+@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
 @patch(VIEWS_PATH + ".update_all")
 @patch(VIEWS_PATH + ".messages")
 class TestViewAuthPage(NoSocketsTestCase):
@@ -67,7 +67,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         self, mock_messages, mock_update_all
     ):
         # given
-        user = AuthUtils.create_user(TEST_STANDINGS_API_CHARNAME)
+        user = AuthUtils.create_user(STANDINGS_API_CHARNAME)
         add_character_to_user(user, self.owner_character, is_main=True)
         # when
         response = self.make_request(user, self.owner_character)
@@ -96,7 +96,7 @@ class TestViewAuthPage(NoSocketsTestCase):
     def test_for_alliance_when_provided_standings_char_return_success(
         self, mock_messages, mock_update_all
     ):
-        user = AuthUtils.create_user(TEST_STANDINGS_API_CHARNAME)
+        user = AuthUtils.create_user(STANDINGS_API_CHARNAME)
         response = self.make_request(user, self.owner_character)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingsrequests:index"))
@@ -108,7 +108,7 @@ class TestViewAuthPage(NoSocketsTestCase):
     def test_for_alliance_when_provided_standings_char_not_in_alliance_return_error(
         self, mock_messages, mock_update_all
     ):
-        user = AuthUtils.create_user(TEST_STANDINGS_API_CHARNAME)
+        user = AuthUtils.create_user(STANDINGS_API_CHARNAME)
         character = create_entity(EveCharacter, 1007)
         add_character_to_user(user, character)
         response = self.make_request(user, character)
@@ -119,7 +119,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         self.assertFalse(mock_update_all.delay.called)
 
 
-@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
+@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
 @patch(MANAGERS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
 class TestViewsBasics(TestViewPagesBase):
     def test_should_redirect_to_create_requests_page_for_requestor_1(self):
@@ -524,8 +524,10 @@ class TestRequestCorporationStanding(TestCase):
             reverse("standingsrequests:request_corp_standing", args=[corporation_id])
         )
         request.user = self.user
-        with patch(MODELS_PATH + ".EveCorporation.get_by_id") as mock_get_corp_by_id:
-            mock_get_corp_by_id.return_value = EveCorporation(
+        with patch(
+            MODELS_PATH + ".EveCorporationHelper.get_by_id"
+        ) as mock_get_corp_by_id:
+            mock_get_corp_by_id.return_value = EveCorporationHelper(
                 **get_my_test_data()["EveCorporationInfo"]["2102"]
             )
             with (

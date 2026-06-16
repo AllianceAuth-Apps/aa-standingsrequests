@@ -11,7 +11,7 @@ from app_utils.testing import add_character_to_user
 
 from standingsrequests.models import StandingRequest
 from standingsrequests.tests.testdata.my_test_data import (
-    TEST_STANDINGS_ALLIANCE_ID,
+    STANDINGS_ALLIANCE_ID,
     create_contacts_set,
     create_entity,
     load_eve_entities,
@@ -25,7 +25,7 @@ TEST_REQUIRED_SCOPE = "mind_reading.v1"
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(
     "standingsrequests.core.app_config.STR_ALLIANCE_IDS",
-    [str(TEST_STANDINGS_ALLIANCE_ID)],
+    [str(STANDINGS_ALLIANCE_ID)],
 )
 @patch(
     "standingsrequests.models.SR_REQUIRED_SCOPES",

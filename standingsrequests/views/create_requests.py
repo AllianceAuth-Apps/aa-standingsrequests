@@ -20,7 +20,7 @@ from standingsrequests.app_settings import SR_CORPORATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult
 from standingsrequests.core import app_config
 from standingsrequests.decorators import token_required_by_state
-from standingsrequests.helpers.evecorporation import EveCorporation
+from standingsrequests.helpers.evecorporation import EveCorporationHelper
 from standingsrequests.models import ContactSet, StandingRequest, StandingRevocation
 from standingsrequests.tasks import update_all, update_associations_api
 
@@ -205,7 +205,7 @@ def request_corporations(request):
         for obj in (contact_set.contacts.filter(eve_entity_id__in=corporation_ids))
     }
     corporations_data = []
-    for corporation in EveCorporation.get_many_by_id(corporation_ids):
+    for corporation in EveCorporationHelper.get_many_by_id(corporation_ids):
         if not corporation or corporation.is_npc:
             continue
 
@@ -229,7 +229,7 @@ def request_corporations(request):
 
 def _create_corporation_row(
     user: User,
-    corporation: EveCorporation,
+    corporation: EveCorporationHelper,
     corporations_standing_requests,
     corporations_revocation_requests,
     corporation_contacts,

@@ -22,7 +22,7 @@ from standingsrequests.app_settings import SR_REQUIRED_SCOPES, SR_STANDING_TIMEO
 from standingsrequests.constants import OperationMode
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import EveCorporation
+from standingsrequests.helpers.evecorporation import EveCorporationHelper
 from standingsrequests.helpers.models import (
     FrozenModelMixin,
     GatherEntityIdsMixin,
@@ -181,6 +181,10 @@ class Contact(models.Model):
     @property
     def name(self) -> str:
         return self.eve_entity.name
+
+    @property
+    def contact_id(self) -> int:
+        return self.eve_entity.id
 
     @property
     def is_standing_satisfied(self) -> bool:
@@ -576,7 +580,8 @@ class StandingRequest(AbstractStandingsRequest):
     @classmethod
     def can_request_corporation_standing(cls, corporation_id: int, user: User) -> bool:
         """
-        Checks if given user owns all of the required corp tokens for standings to be permitted
+        Report whether user owns all of the required corp tokens
+        for standings to be permitted
 
         Params
         - corporation_id: corp to check for
@@ -584,7 +589,7 @@ class StandingRequest(AbstractStandingsRequest):
 
         returns True if they can request standings, False if they cannot
         """
-        corporation = EveCorporation.get_by_id(corporation_id)
+        corporation = EveCorporationHelper.get_by_id(corporation_id)
         return (
             corporation is not None
             and not corporation.is_npc

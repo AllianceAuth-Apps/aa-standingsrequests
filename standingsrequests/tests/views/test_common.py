@@ -10,9 +10,11 @@ from app_utils.testing import NoSocketsTestCase, add_character_to_user
 from standingsrequests.models import StandingRequest, StandingRevocation
 from standingsrequests.tests.testdata.factories import (
     CharacterAffiliationFactory,
-    EveCorporationFactory,
-    StandingRequestFactory,
-    StandingRevocationFactory,
+    EveCorporationHelperFactory,
+    StandingRequestCharacterFactory,
+    StandingRequestCorporationFactory,
+    StandingRevocationCharacterFactory,
+    StandingRevocationCorporationFactory,
     StateFactory,
     UserMainRequestorFactory,
 )
@@ -29,7 +31,7 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         user = UserMainRequestorFactory(main_character__character=main)
         character = EveCharacterFactory()
         add_character_to_user(user, character)
-        StandingRequestFactory(
+        StandingRequestCharacterFactory(
             user=user, contact_id=character.character_id, action_by=user
         )
         CharacterAffiliationFactory(eve_character=character, is_eve_character=True)
@@ -67,7 +69,7 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         user = UserMainRequestorFactory(main_character__character=main)
         character = EveCharacterFactory()
         add_character_to_user(user, character)
-        StandingRevocationFactory(
+        StandingRevocationCharacterFactory(
             user=user, contact_id=character.character_id, action_by=user
         )
         CharacterAffiliationFactory(eve_character=character, is_eve_character=True)
@@ -104,10 +106,9 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         main = EveCharacterFactory(corporation=corporation)
         state = StateFactory(member_characters=[main])
         user = UserMainRequestorFactory(main_character__character=main)
-        StandingRequestFactory(
+        StandingRequestCorporationFactory(
             action_by=user,
             contact_id=corporation.corporation_id,
-            is_corporation=True,
             user=user,
         )
         qs = StandingRequest.objects.all()
@@ -117,11 +118,13 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
             patch(
                 MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
             ) as has_required_scopes_for_request,
-            patch(MODULE_PATH + ".EveCorporation.get_many_by_id") as get_many_by_id,
+            patch(
+                MODULE_PATH + ".EveCorporationHelper.get_many_by_id"
+            ) as get_many_by_id,
         ):
             has_required_scopes_for_request.return_value = True
             get_many_by_id.return_value = [
-                EveCorporationFactory(
+                EveCorporationHelperFactory(
                     ceo_id=corporation.ceo_id,
                     corporation_id=corporation.corporation_id,
                     corporation_name=corporation.corporation_name,
@@ -155,10 +158,9 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         main = EveCharacterFactory(corporation=corporation)
         state = StateFactory(member_characters=[main])
         user = UserMainRequestorFactory(main_character__character=main)
-        StandingRevocationFactory(
+        StandingRevocationCorporationFactory(
             action_by=user,
             contact_id=corporation.corporation_id,
-            is_corporation=True,
             user=user,
         )
         qs = StandingRevocation.objects.all()
@@ -168,11 +170,13 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
             patch(
                 MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
             ) as has_required_scopes_for_request,
-            patch(MODULE_PATH + ".EveCorporation.get_many_by_id") as get_many_by_id,
+            patch(
+                MODULE_PATH + ".EveCorporationHelper.get_many_by_id"
+            ) as get_many_by_id,
         ):
             has_required_scopes_for_request.return_value = True
             get_many_by_id.return_value = [
-                EveCorporationFactory(
+                EveCorporationHelperFactory(
                     ceo_id=corporation.ceo_id,
                     corporation_id=corporation.corporation_id,
                     corporation_name=corporation.corporation_name,

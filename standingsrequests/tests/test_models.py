@@ -1,119 +1,106 @@
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
-from django.contrib.auth.models import User
-from django.test import TestCase
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
-from allianceauth.eveonline.models import EveCharacter
-from allianceauth.tests.auth_utils import AuthUtils
-from app_utils.testing import (
-    _generate_token,
-    _store_as_Token,
-    add_character_to_user,
-    add_new_token,
-)
+from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
+from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import EveCorporation
 from standingsrequests.models import (
     AbstractStandingsRequest,
-    CharacterAffiliation,
-    Contact,
-    ContactLabel,
-    ContactSet,
     StandingRequest,
     StandingRevocation,
 )
-from standingsrequests.tests.testdata.entity_type_ids import CHARACTER_TYPE_ID
-from standingsrequests.tests.testdata.my_test_data import (
-    TEST_STANDINGS_ALLIANCE_ID,
-    create_contacts_set,
-    create_entity,
-    create_standings_char,
-    get_my_test_data,
-    load_eve_entities,
+from standingsrequests.tests.testdata.factories import (
+    CharacterAffiliationFactory,
+    ContactCharacterFactory,
+    ContactCorporationFactory,
+    ContactSetFactory,
+    EveCorporationHelperFactory,
+    StandingRequestCharacterFactory,
+    StandingRevocationCharacterFactory,
+    UserMainApproverFactory,
+    UserMainRequestorFactory,
 )
 
 CORE_PATH = "standingsrequests.core"
 MODELS_PATH = "standingsrequests.models"
-TEST_USER_NAME = "Peter Parker"
-TEST_REQUIRED_SCOPE = "mind_reading.v1"
+STANDINGS_ALLIANCE_ID = 99_000_123
 
 
-class TestContactSet(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.character_1001 = create_entity(EveCharacter, 1001)
-        load_eve_entities()
+class TestAbstractStandingsRequest_ReportType(NoSocketsTestCase):
+    def test_should_say_standing_request(self):
+        # given
+        sr = StandingRequestCharacterFactory()
+        # then
+        self.assertTrue(sr.is_standing_request)
+        self.assertFalse(sr.is_standing_revocation)
 
+    def test_should_say_standing_revocation(self):
+        # given
+        sr = StandingRevocationCharacterFactory()
+        # then
+        self.assertFalse(sr.is_standing_request)
+        self.assertTrue(sr.is_standing_revocation)
+
+
+class TestCharacterAffiliation_CharacterName(NoSocketsTestCase):
+    def test_should_return_character_name(self):
+        # given
+        character_name = "Peter Parker"
+        ca = CharacterAffiliationFactory(character__name=character_name)
+
+        # when
+        got = ca.character_name
+
+        # then
+        self.assertEqual(got, character_name)
+
+    def test_should_return_none_when_no_character_name(self):
+        # given
+        character = EveEntity.objects.create(id=1999)
+        ca = CharacterAffiliationFactory(character=character)
+
+        # when/then
+        self.assertIsNone(ca.character_name)
+
+
+class TestContactSet(NoSocketsTestCase):
     def test_str(self):
-        my_set = ContactSet(name="My Set")
-        self.assertIsInstance(str(my_set), str)
-
-
-class TestContactSetCreateStanding(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.contact_set = create_contacts_set()
-
-    def test_can_create_pilot_standing(self):
-        obj = Contact.objects.create(
-            contact_set=self.contact_set, eve_entity_id=1009, standing=-10
-        )
-        obj.labels.add(*ContactLabel.objects.all())
-        self.assertIsInstance(obj, Contact)
-        self.assertEqual(obj.eve_entity_id, 1009)
-        self.assertEqual(obj.standing, -10)
-
-    def test_can_create_corp_standing(self):
-        obj = Contact.objects.create(
-            contact_set=self.contact_set, eve_entity_id=2102, standing=-10
-        )
-        obj.labels.add(*ContactLabel.objects.all())
-        self.assertIsInstance(obj, Contact)
-        self.assertEqual(obj.eve_entity_id, 2102)
-        self.assertEqual(obj.standing, -10)
-
-    def test_can_create_alliance_standing(self):
-        obj = Contact.objects.create(
-            contact_set=self.contact_set, eve_entity_id=3001, standing=5
-        )
-        obj.labels.add(*ContactLabel.objects.all())
-        self.assertIsInstance(obj, Contact)
-        self.assertEqual(obj.eve_entity_id, 3001)
-        self.assertEqual(obj.standing, 5)
+        # given
+        cs = ContactSetFactory()
+        self.assertIsInstance(str(cs), str)
 
 
 @patch(
-    MODELS_PATH + ".SR_REQUIRED_SCOPES",
-    {"Member": [TEST_REQUIRED_SCOPE], "Blue": [], "": []},
+    MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Member": ["my_scope"], "Blue": [], "": []}
 )
-@patch(CORE_PATH + ".app_config.STR_ALLIANCE_IDS", [TEST_STANDINGS_ALLIANCE_ID])
+@patch(CORE_PATH + ".app_config.STR_ALLIANCE_IDS", [STANDINGS_ALLIANCE_ID])
 @patch("standingsrequests.managers.create_eve_entities", Mock())
-class TestContactSetGenerateStandingRequestsForBlueAlts(TestCase):
+class TestContactSet_GenerateStandingRequestsForBlueAlts(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = AuthUtils.create_member(TEST_USER_NAME)
-        create_standings_char()
-        cls.contacts_set = create_contacts_set()
+        EveCharacterFactory(alliance_id=STANDINGS_ALLIANCE_ID)
+        cls.main_character = EveCharacterFactory(alliance_id=STANDINGS_ALLIANCE_ID)
 
-    def test_should_create_new_request_for_blue_alt(self):
+    def test_should_create_request_when_alt_already_has_standing(self):
         # given
-        alt_id = 1010
-        alt = create_entity(EveCharacter, alt_id)
-        add_character_to_user(self.user, alt, scopes=["dummy"])
+        user = UserMainRequestorFactory(main_character__character=self.main_character)
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt, scopes=["dummy"])
+        cs = ContactSetFactory()
+        ContactCharacterFactory(contact_set=cs, contact_id=alt.character_id, standing=5)
+
         # when
-        self.contacts_set.generate_standing_requests_for_blue_alts()
+        cs.generate_standing_requests_for_blue_alts()
+
         # then
-        request = StandingRequest.objects.get(contact_id=alt_id)
+        request = StandingRequest.objects.get(contact_id=alt.character_id)
         self.assertTrue(request.is_effective)
-        self.assertEqual(request.user, self.user)
-        self.assertEqual(request.contact_id, 1010)
+        self.assertEqual(request.user, user)
+        self.assertEqual(request.contact_id, alt.character_id)
         self.assertEqual(request.is_effective, True)
         self.assertAlmostEqual((now() - request.request_date).seconds, 0, delta=30)
         self.assertAlmostEqual((now() - request.action_date).seconds, 0, delta=30)
@@ -121,85 +108,56 @@ class TestContactSetGenerateStandingRequestsForBlueAlts(TestCase):
 
     def test_should_not_create_requests_for_blue_alt_if_request_already_exists(self):
         # given
-        alt_id = 1010
-        alt = create_entity(EveCharacter, alt_id)
-        add_character_to_user(self.user, alt, scopes=["dummy"])
-        req = StandingRequest.objects.get_or_create_2(
-            self.user,
-            alt_id,
-            StandingRequest.ContactType.CHARACTER,
-        )
+        user = UserMainRequestorFactory(main_character__character=self.main_character)
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt, scopes=["dummy"])
+        cs = ContactSetFactory()
+        ContactCharacterFactory(contact_set=cs, contact_id=alt.character_id, standing=5)
+        req = StandingRequestCharacterFactory(contact_id=alt.character_id, user=user)
+
         # when
-        self.contacts_set.generate_standing_requests_for_blue_alts()
+        cs.generate_standing_requests_for_blue_alts()
+
         # then
         req.refresh_from_db()
         self.assertFalse(req.is_effective)
 
     def test_should_not_create_requests_for_non_blue_alts(self):
         # given
-        alt_id = 1009
-        alt = create_entity(EveCharacter, alt_id)
-        add_character_to_user(self.user, alt, scopes=["dummy"])
+        user = UserMainRequestorFactory(main_character__character=self.main_character)
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt, scopes=["dummy"])
+        cs = ContactSetFactory()
+        ContactCharacterFactory(
+            contact_set=cs, contact_id=alt.character_id, standing=-10
+        )
+
         # when
-        self.contacts_set.generate_standing_requests_for_blue_alts()
+        cs.generate_standing_requests_for_blue_alts()
+
         # then
-        self.assertFalse(StandingRequest.objects.filter(contact_id=alt_id).exists())
+        self.assertFalse(
+            StandingRequest.objects.filter(contact_id=alt.character_id).exists()
+        )
 
     def test_should_not_create_requests_for_alts_in_organization(self):
         # given
-        alt_id = 1002
-        main = create_entity(EveCharacter, alt_id)
-        add_character_to_user(self.user, main, is_main=True, scopes=["dummy"])
+        user = UserMainRequestorFactory(main_character__character=self.main_character)
+        alt = EveCharacterFactory(alliance_id=STANDINGS_ALLIANCE_ID)
+        add_character_to_user(user, alt, scopes=["dummy"])
+        cs = ContactSetFactory()
+        ContactCharacterFactory(contact_set=cs, contact_id=alt.character_id, standing=5)
+
         # when
-        self.contacts_set.generate_standing_requests_for_blue_alts()
+        cs.generate_standing_requests_for_blue_alts()
+
         # then
-        self.assertFalse(StandingRequest.objects.filter(contact_id=alt_id).exists())
-
-
-class TestAbstractStandingsRequest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        create_contacts_set()
-        cls.user_requestor = User.objects.create_user(
-            "Roger Requestor", "rr@example.com", "password"
+        self.assertFalse(
+            StandingRequest.objects.filter(contact_id=alt.character_id).exists()
         )
 
-    def test_should_say_standing_request(self):
-        # given
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1002,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
-        )
-        # then
-        self.assertTrue(my_request.is_standing_request)
-        self.assertFalse(my_request.is_standing_revocation)
 
-    def test_should_say_standing_revocation(self):
-        # given
-        my_request = StandingRevocation(
-            user=self.user_requestor,
-            contact_id=1002,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
-        )
-        # then
-        self.assertFalse(my_request.is_standing_request)
-        self.assertTrue(my_request.is_standing_revocation)
-
-
-class TestStandingRequest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        create_contacts_set()
-        cls.user_manager = User.objects.create_user(
-            "Mike Manager", "mm@example.com", "password"
-        )
-        cls.user_requestor = User.objects.create_user(
-            "Roger Requestor", "rr@example.com", "password"
-        )
-
+class TestStandingRequest_IsStandingSatisfied(NoSocketsTestCase):
     def test_is_standing_satisfied(self):
         class MyStandingRequest(AbstractStandingsRequest):
             EXPECT_STANDING_LTEQ = 5.0
@@ -211,502 +169,420 @@ class TestStandingRequest(TestCase):
         self.assertFalse(MyStandingRequest.is_standing_satisfied(10))
         self.assertFalse(MyStandingRequest.is_standing_satisfied(None))
 
-    def test_check_standing_satisfied_check_only(self):
-        my_request = StandingRequest(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
-        self.assertTrue(my_request.evaluate_effective_standing(check_only=True))
 
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1002,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
-        )
-        self.assertTrue(my_request.evaluate_effective_standing(check_only=True))
-
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1003,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
-        )
-        self.assertTrue(my_request.evaluate_effective_standing(check_only=True))
-
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1005,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
-        )
-        self.assertFalse(my_request.evaluate_effective_standing(check_only=True))
-
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1009,
-            contact_type_id=ContactTypeId.CHARACTER_BRUTOR,
-        )
-        self.assertFalse(my_request.evaluate_effective_standing(check_only=True))
-
-    def test_check_standing_satisfied_no_standing(self):
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1999, contact_type_id=CHARACTER_TYPE_ID
-        )
-        self.assertFalse(my_request.evaluate_effective_standing(check_only=True))
-
-    def test_mark_standing_effective_1(self):
+class TestStandingRequest_TestMarkStandingActioned(NoSocketsTestCase):
+    def test_should_mark_standing_as_actioned(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
-        # when
-        my_request.mark_effective()
-        # then
-        my_request.refresh_from_db()
-        self.assertTrue(my_request.is_effective)
-        self.assertIsInstance(my_request.effective_date, datetime)
+        sr = StandingRequestCharacterFactory()
+        approver = UserMainApproverFactory()
 
-    def test_mark_standing_effective_2(self):
+        # when
+        sr.mark_actioned(approver)
+
+        # then
+        sr.refresh_from_db()
+        self.assertEqual(sr.action_by, approver)
+        self.assertIsInstance(sr.action_date, datetime)
+        self.assertEqual(sr.reason, StandingRequest.Reason.NONE)
+
+    def test_should_mark_standing_as_actioned_with_reason(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
-        my_date = now() - timedelta(days=5, hours=4)
+        sr = StandingRequestCharacterFactory()
+        approver = UserMainApproverFactory()
+
         # when
-        my_request.mark_effective(date=my_date)
+        sr.mark_actioned(user=approver, reason=StandingRequest.Reason.STANDING_IN_GAME)
+
         # then
-        my_request.refresh_from_db()
-        self.assertTrue(my_request.is_effective)
-        self.assertEqual(my_request.effective_date, my_date)
+        sr.refresh_from_db()
+        self.assertEqual(sr.action_by, approver)
+        self.assertIsInstance(sr.action_date, datetime)
+        self.assertEqual(sr.reason, StandingRequest.Reason.STANDING_IN_GAME)
 
-    def test_check_standing_satisfied_and_mark(self):
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor, contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
-        self.assertTrue(my_request.evaluate_effective_standing())
-        my_request.refresh_from_db()
-        self.assertTrue(my_request.is_effective)
-        self.assertIsInstance(my_request.effective_date, datetime)
 
-    def test_mark_standing_actioned(self):
+class TestStandingRequest_MarkEffective(NoSocketsTestCase):
+    def test_should_mark_standing_as_effective(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-        )
-        # when
-        my_request.mark_actioned(self.user_manager)
-        # then
-        my_request.refresh_from_db()
-        self.assertEqual(my_request.action_by, self.user_manager)
-        self.assertIsInstance(my_request.action_date, datetime)
-        self.assertEqual(my_request.reason, StandingRequest.Reason.NONE)
+        contact = ContactCharacterFactory(standing=10)
+        sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
 
-    def test_mark_standing_actioned_with_reason(self):
+        # when
+        sr.mark_effective()
+
+        # then
+        sr.refresh_from_db()
+        self.assertTrue(sr.is_effective)
+        self.assertTrue(sr.effective_date)
+
+    def test_mark_standing_effective_with_date(self):
         # given
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-        )
+        contact = ContactCharacterFactory(standing=10)
+        sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
+        my_date = now() - timedelta(hours=4)
+
         # when
-        my_request.mark_actioned(
-            user=self.user_manager, reason=StandingRequest.Reason.STANDING_IN_GAME
-        )
+        sr.mark_effective(date=my_date)
+
         # then
-        my_request.refresh_from_db()
-        self.assertEqual(my_request.action_by, self.user_manager)
-        self.assertIsInstance(my_request.action_date, datetime)
-        self.assertEqual(my_request.reason, StandingRequest.Reason.STANDING_IN_GAME)
+        sr.refresh_from_db()
+        self.assertTrue(sr.is_effective)
+        self.assertEqual(sr.effective_date, my_date)
 
-    def test_check_standing_actioned_timeout_already_effective(self):
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=True,
-        )
-        self.assertIsNone(my_request.check_actioned_timeout())
 
-    def test_check_standing_actioned_timeout_not_actioned(self):
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=False,
-        )
-        self.assertIsNone(my_request.check_actioned_timeout())
+class TestStandingRequest_EvaluateEffectiveStanding(NoSocketsTestCase):
+    def test_should_report_whether_standing_is_satisfied_only(self):
+        cases = [
+            (10, True),
+            (-10, False),
+            (None, False),
+        ]
+        for standing, want in cases:
+            if standing is not None:
+                contact = ContactCharacterFactory(standing=standing)
+            sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
+            got = sr.evaluate_effective_standing(check_only=True)
+            self.assertEqual(got, want)
+            sr.refresh_from_db()
+            self.assertFalse(sr.is_effective)
+
+    def test_should_report_standing_as_satisfied_and_mark_as_effective(self):
+        # given
+        contact = ContactCharacterFactory(standing=10)
+        sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
+
+        # when
+        got = sr.evaluate_effective_standing()
+
+        # when
+        self.assertTrue(got)
+        sr.refresh_from_db()
+        self.assertTrue(sr.is_effective)
+        self.assertIsInstance(sr.effective_date, datetime)
+
+
+class TestStandingRequest_CheckActionedTimeout(NoSocketsTestCase):
+    def test_should_return_none_when_already_effective(self):
+        # given
+        ContactSetFactory()
+        sr = StandingRequestCharacterFactory(effective=True)
+
+        # when
+        self.assertIsNone(sr.check_actioned_timeout())
+
+    def test_should_return_none_when_not_effective(self):
+        # given
+        ContactSetFactory()
+        sr = StandingRequestCharacterFactory()
+
+        # when
+        self.assertIsNone(sr.check_actioned_timeout())
 
     def test_check_standing_actioned_timeout_after_deadline(self):
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
+        # given
+        ContactSetFactory()
+        approver = UserMainApproverFactory()
+        sr = StandingRequestCharacterFactory(
+            action_by=approver,
             action_date=now() - timedelta(hours=25),
             is_effective=False,
         )
-        self.assertEqual(my_request.check_actioned_timeout(), self.user_manager)
-        my_request.refresh_from_db()
-        self.assertIsNone(my_request.action_by)
-        self.assertIsNone(my_request.action_date)
 
-    def test_check_standing_actioned_timeout_before_deadline(self):
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=False,
-        )
-        self.assertFalse(my_request.check_actioned_timeout())
+        # when
+        got = sr.check_actioned_timeout()
 
-    def test_reset_to_initial(self):
-        my_request = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=True,
-            effective_date=now(),
-        )
-        my_request.reset_to_initial()
-        my_request.refresh_from_db()
-        self.assertFalse(my_request.is_effective)
-        self.assertIsNone(my_request.effective_date)
-        self.assertIsNone(my_request.action_by)
-        self.assertIsNone(my_request.action_date)
+        # then
+        self.assertEqual(got, approver)
+        sr.refresh_from_db()
+        self.assertIsNone(sr.action_by)
+        self.assertIsNone(sr.action_date)
+
+    def test_should_return_false_when_action_has_not_timed_out(self):
+        # given
+        ContactSetFactory()
+        my_request = StandingRequestCharacterFactory(pending=True)
+
+        # when
+        got = my_request.check_actioned_timeout()
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_return_none_when_no_contact_set_found(self):
+        # given
+        sr = StandingRequestCharacterFactory(pending=True)
+
+        # when
+        got = sr.check_actioned_timeout()
+
+        # then
+        self.assertIsNone(got)
 
 
-class TestStandingRequestDelete(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        create_contacts_set()
-        cls.user_manager = User.objects.create_user(
-            "Mike Manager", "mm@example.com", "password"
-        )
-        cls.user_requestor = User.objects.create_user(
-            "Roger Requestor", "rr@example.com", "password"
-        )
+class TestStandingRequest_ResetToInitial(NoSocketsTestCase):
+    def test_should_reset_standing_request(self):
+        # given
+        sr = StandingRequestCharacterFactory(effective=True)
 
-    def test_delete_for_non_effective_dont_add_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            is_effective=False,
-        )
-        my_request_effective.delete()
+        # when
+        sr.reset_to_initial()
+
+        # then
+        sr.refresh_from_db()
+        self.assertFalse(sr.is_effective)
+        self.assertIsNone(sr.effective_date)
+        self.assertIsNone(sr.action_by)
+        self.assertIsNone(sr.action_date)
+
+
+class TestStandingRequest_Delete(NoSocketsTestCase):
+    def test_should_delete_and_not_add_revocation_when_not_effective(self):
+        # given
+        sr = StandingRequestCharacterFactory()
+
+        # when
+        sr.delete()
+
+        # then
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
         self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        self.assertFalse(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
+            StandingRevocation.objects.filter(contact_id=sr.contact_id).exists()
         )
 
-    def test_delete_for_effective_add_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=True,
-            effective_date=now(),
-        )
-        my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
+    def test_should_delete_and_add_revocation_when_effective(self):
+        # given
+        sr = StandingRequestCharacterFactory(effective=True)
+
+        # when
+        sr.delete()
+
+        # then
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
         self.assertTrue(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
+            StandingRevocation.objects.filter(contact_id=sr.contact_id).exists()
         )
 
     def test_delete_for_effective_add_revocation_and_reason(self):
         # given
-        my_request_effective = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=True,
-            effective_date=now(),
+        sr = StandingRequestCharacterFactory(effective=True)
+
+        # when
+        sr.delete(reason=AbstractStandingsRequest.Reason.REVOKED_IN_GAME)
+
+        # then
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
+        obj = StandingRevocation.objects.get(contact_id=sr.contact_id)
+        self.assertEqual(obj.reason, AbstractStandingsRequest.Reason.REVOKED_IN_GAME)
+
+    def test_should_delete_and_add_revocation_when_pending(self):
+        # given
+        sr = StandingRequestCharacterFactory(pending=True)
+
+        # when
+        sr.delete()
+
+        # then
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
+        self.assertTrue(
+            StandingRevocation.objects.filter(contact_id=sr.contact_id).exists()
+        )
+
+    def test_should_delete_and_not_add_revocation_when_effective_and_revocation_exists(
+        self,
+    ):
+        # given
+        rq = StandingRequestCharacterFactory(effective=True)
+        StandingRevocationCharacterFactory(standing_request=rq)
+
+        # when
+        rq.delete()
+
+        # then
+        self.assertFalse(StandingRequest.objects.filter(pk=rq.pk).exists())
+        self.assertEqual(
+            StandingRevocation.objects.filter(contact_id=rq.contact_id).count(), 1
+        )
+
+
+@patch(MODELS_PATH + ".EveCorporationHelper.get_by_id")
+class TestStandingRequest_CanRequestCorporationStanding(NoSocketsTestCase):
+    def test_should_confirm_when_user_owns_all_members(self, mock_get_corp_by_id):
+        # given
+        scope_name = "special_scope"
+        cs = ContactSetFactory()
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
+        )
+        ContactCorporationFactory(
+            contact_set=cs, contact_id=corporation.corporation_id, standing=10
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        add_character_to_user(
+            user, EveCharacterFactory(corporation=corporation), scopes=[scope_name]
         )
 
         # when
-        my_request_effective.delete(
-            reason=AbstractStandingsRequest.Reason.REVOKED_IN_GAME
-        )
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = StandingRequest.can_request_corporation_standing(
+                corporation.corporation_id, user
+            )
 
         # then
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        obj = StandingRevocation.objects.get(
-            contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-        )
-        self.assertEqual(obj.reason, AbstractStandingsRequest.Reason.REVOKED_IN_GAME)
+        self.assertTrue(got)
 
-    def test_delete_for_pending_add_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=False,
+    def test_should_deny_when_user_does_not_own_all_members(self, mock_get_corp_by_id):
+        # given
+        scope_name = "special_scope"
+        cs = ContactSetFactory()
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
         )
-        my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
+        ContactCorporationFactory(
+            contact_set=cs, contact_id=corporation.corporation_id, standing=10
         )
-        self.assertTrue(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
         )
 
-    def test_delete_for_effective_dont_add_another_revocation(self):
-        my_request_effective = StandingRequest.objects.create(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=True,
-            effective_date=now(),
-        )
-        StandingRevocation.objects.add_revocation(
-            1001, StandingRevocation.ContactType.CHARACTER
-        )
-        my_request_effective.delete()
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).exists()
-        )
-        self.assertEqual(
-            StandingRevocation.objects.filter(
-                contact_id=1001, contact_type_id=CHARACTER_TYPE_ID
-            ).count(),
-            1,
-        )
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = StandingRequest.can_request_corporation_standing(
+                corporation.corporation_id, user
+            )
 
+        # then
+        self.assertFalse(got)
 
-class TestStandingRequest2(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user_manager = User.objects.create_user(
-            "Mike Manager", "mm@example.com", "password"
-        )
-        cls.user_requestor = User.objects.create_user(
-            "Roger Requestor", "rr@example.com", "password"
-        )
-
-    def test_check_standing_actioned_timeout_no_contact_set(self):
-        my_request = StandingRequest(
-            user=self.user_requestor,
-            contact_id=1001,
-            contact_type_id=CHARACTER_TYPE_ID,
-            action_by=self.user_manager,
-            action_date=now(),
-            is_effective=False,
-        )
-        self.assertIsNone(my_request.check_actioned_timeout())
-
-
-class TestStandingRequestClassMethods(TestCase):
-    @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["publicData"]})
-    @patch(MODELS_PATH + ".EveCorporation.get_by_id")
-    def test_can_request_corporation_standing_good(self, mock_get_corp_by_id):
-        """user has tokens for all 3 chars of corp"""
-        mock_get_corp_by_id.return_value = EveCorporation(
-            **get_my_test_data()["EveCorporationInfo"]["2001"]
-        )
-        my_user = AuthUtils.create_user("John Doe")
-        for character_id, character in get_my_test_data()["EveCharacter"].items():
-            if character["corporation_id"] == 2001:
-                my_character = EveCharacter.objects.create(**character)
-                _store_as_Token(
-                    _generate_token(
-                        character_id=my_character.character_id,
-                        character_name=my_character.character_name,
-                        scopes=["publicData"],
-                    ),
-                    my_user,
-                )
-
-        self.assertTrue(StandingRequest.can_request_corporation_standing(2001, my_user))
-
-    @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["publicData"]})
-    @patch(MODELS_PATH + ".EveCorporation.get_by_id")
-    def test_can_request_corporation_standing_incomplete(self, mock_get_corp_by_id):
-        """user has tokens for only 2 / 3 chars of corp"""
-        mock_get_corp_by_id.return_value = EveCorporation(
-            **get_my_test_data()["EveCorporationInfo"]["2001"]
-        )
-        my_user = AuthUtils.create_user("John Doe")
-        for character_id, character in get_my_test_data()["EveCharacter"].items():
-            if character_id in [1001, 1002]:
-                my_character = EveCharacter.objects.create(**character)
-                _store_as_Token(
-                    _generate_token(
-                        character_id=my_character.character_id,
-                        character_name=my_character.character_name,
-                        scopes=["publicData"],
-                    ),
-                    my_user,
-                )
-
-        self.assertFalse(
-            StandingRequest.can_request_corporation_standing(2001, my_user)
-        )
-
-    @patch(
-        MODELS_PATH + ".SR_REQUIRED_SCOPES",
-        {"Guest": ["publicData", "esi-mail.read_mail.v1"]},
-    )
-    @patch(MODELS_PATH + ".EveCorporation.get_by_id")
-    def test_can_request_corporation_standing_wrong_scope(self, mock_get_corp_by_id):
-        """user has tokens for only 3 / 3 chars of corp, but wrong scopes"""
-        mock_get_corp_by_id.return_value = EveCorporation(
-            **(get_my_test_data()["EveCorporationInfo"]["2001"])
-        )
-        my_user = AuthUtils.create_user("John Doe")
-        for character_id, character in get_my_test_data()["EveCharacter"].items():
-            if character_id in [1001, 1002]:
-                my_character = EveCharacter.objects.create(**character)
-                _store_as_Token(
-                    _generate_token(
-                        character_id=my_character.character_id,
-                        character_name=my_character.character_name,
-                        scopes=["publicData"],
-                    ),
-                    my_user,
-                )
-
-        self.assertFalse(
-            StandingRequest.can_request_corporation_standing(2001, my_user)
-        )
-
-    @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["publicData"]})
-    @patch(MODELS_PATH + ".EveCorporation.get_by_id")
-    def test_can_request_corporation_standing_good_another_user(
+    def test_should_deny_when_user_owns_all_members_but_some_scopes_are_incorrect(
         self, mock_get_corp_by_id
     ):
-        """there are tokens for all 3 chars of corp, but for another user"""
-        mock_get_corp_by_id.return_value = EveCorporation(
-            **get_my_test_data()["EveCorporationInfo"]["2001"]
+        # given
+        scope_name = "special_scope"
+        cs = ContactSetFactory()
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
         )
-        user_1 = AuthUtils.create_user("John Doe")
-        for character_id, character in get_my_test_data()["EveCharacter"].items():
-            if character["corporation_id"] == 2001:
-                my_character = EveCharacter.objects.create(**character)
-                add_character_to_user(
-                    user_1,
-                    my_character,
-                    scopes=["publicData"],
-                )
-
-        user_2 = AuthUtils.create_user("Mike Myers")
-        self.assertFalse(StandingRequest.can_request_corporation_standing(2001, user_2))
-
-
-class TestStandingRequestGetRequiredScopesForState(TestCase):
-    @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]})
-    def test_return_scopes_if_defined_for_state(self):
-        expected = ["abc"]
-        self.assertListEqual(
-            StandingRequest.get_required_scopes_for_state("member"), expected
+        ContactCorporationFactory(
+            contact_set=cs, contact_id=corporation.corporation_id, standing=10
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        add_character_to_user(
+            user, EveCharacterFactory(corporation=corporation), scopes=["incorrect"]
         )
 
-    @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]})
-    def test_return_empty_list_if_not_defined_for_state(self):
-        expected = []
-        self.assertListEqual(
-            StandingRequest.get_required_scopes_for_state("guest"), expected
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = StandingRequest.can_request_corporation_standing(
+                corporation.corporation_id, user
+            )
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_deny_when_some_members_are_owned_by_another_user(
+        self, mock_get_corp_by_id
+    ):
+        # given
+        scope_name = "special_scope"
+        cs = ContactSetFactory()
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
+        )
+        ContactCorporationFactory(
+            contact_set=cs, contact_id=corporation.corporation_id, standing=10
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
         )
 
-    @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]})
-    def test_return_empty_list_if_state_is_note(self):
-        expected = []
-        self.assertListEqual(
-            StandingRequest.get_required_scopes_for_state(None), expected
-        )
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = StandingRequest.can_request_corporation_standing(
+                corporation.corporation_id, user
+            )
+
+        # then
+        self.assertFalse(got)
+
+
+class TestStandingRequest_GetRequiredScopesForState(NoSocketsTestCase):
+    def test_return_scopes_when_defined_for_state(self):
+        scope_name = "abc"
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": [scope_name]}):
+            got = StandingRequest.get_required_scopes_for_state("member")
+        self.assertCountEqual(got, [scope_name])
+
+    def test_return_empty_list_when_not_defined_for_state(self):
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]}):
+            got = StandingRequest.get_required_scopes_for_state("guest")
+        self.assertListEqual(got, [])
+
+    def test_return_empty_list_when_state_is_none(self):
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]}):
+            got = StandingRequest.get_required_scopes_for_state(None)
+        self.assertListEqual(got, [])
 
 
 @patch(MODELS_PATH + ".StandingRequest.get_required_scopes_for_state")
-class TestStandingsManagerHasRequiredScopesForRequest(TestCase):
-    def test_true_when_user_has_required_scopes(
+class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
+    def test_should_confirm_when_user_has_character_token_with_required_scopes(
         self, mock_get_required_scopes_for_state
     ):
+        scope_name = "abc"
+        mock_get_required_scopes_for_state.return_value = [scope_name]
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
+        add_character_to_user(user, character, scopes=[scope_name])
+
+        # when
+        got = StandingRequest.has_required_scopes_for_request(
+            character, quick_check=True
+        )
+
+        # then
+        self.assertTrue(got)
+
+    def test_should_deny_when_user_has_character_token_but_with_wrong_scopes(
+        self, mock_get_required_scopes_for_state
+    ):
+        scope_name = "abc"
+        mock_get_required_scopes_for_state.return_value = [scope_name]
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
+        add_character_to_user(user, character, scopes=["other_scope"])
+
+        # when
+        got = StandingRequest.has_required_scopes_for_request(
+            character, quick_check=True
+        )
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_deny_when_character_has_no_owner(
+        self, mock_get_required_scopes_for_state
+    ):
+        # given
         mock_get_required_scopes_for_state.return_value = ["abc"]
-        user = AuthUtils.create_member("Bruce Wayne")
-        character = AuthUtils.add_main_character_2(
-            user=user,
-            name="Batman",
-            character_id=2099,
-            corp_id=2001,
-            corp_name="Wayne Tech",
-        )
-        add_new_token(user, character, ["abc"])
-        self.assertTrue(StandingRequest.has_required_scopes_for_request(character))
+        character = EveCharacterFactory()
 
-    def test_false_when_user_does_not_have_required_scopes(
-        self, mock_get_required_scopes_for_state
-    ):
-        mock_get_required_scopes_for_state.return_value = ["xyz"]
-        user = AuthUtils.create_member("Bruce Wayne")
-        character = AuthUtils.add_main_character_2(
-            user=user,
-            name="Batman",
-            character_id=2099,
-            corp_id=2001,
-            corp_name="Wayne Tech",
-        )
-        add_new_token(user, character, ["abc"])
-        self.assertFalse(StandingRequest.has_required_scopes_for_request(character))
+        # when
+        got = StandingRequest.has_required_scopes_for_request(character)
 
-    def test_false_when_user_state_can_not_be_determinded(
-        self, mock_get_required_scopes_for_state
-    ):
-        mock_get_required_scopes_for_state.return_value = ["abc"]
-        character = create_entity(EveCharacter, 1002)
-        self.assertFalse(StandingRequest.has_required_scopes_for_request(character))
-
-
-class TestCharacterAffiliation(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        load_eve_entities()
-
-    def test_get_character_name_exists(self):
-        my_assoc = CharacterAffiliation.objects.create(
-            character_id=1002, corporation_id=2001
-        )
-        self.assertEqual(my_assoc.character_name, "Peter Parker")
-
-    def test_get_character_name_not_exists(self):
-        character = EveEntity.objects.create(id=1999)
-        my_assoc = CharacterAffiliation.objects.create(
-            character=character, corporation_id=2001
-        )
-        self.assertIsNone(my_assoc.character_name)
+        # then
+        self.assertFalse(got)

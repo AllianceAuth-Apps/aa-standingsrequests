@@ -41,13 +41,13 @@ from standingsrequests.tests.testdata.factories import (
     CharacterAffiliationFactory,
     ContactCharacterFactory,
     ContactSetFactory,
-    StandingRequestFactory,
-    StandingRevocationFactory,
+    StandingRequestCharacterFactory,
+    StandingRevocationCharacterFactory,
     make_esi_url,
 )
 from standingsrequests.tests.testdata.my_test_data import (
-    TEST_STANDINGS_API_CHARID,
-    TEST_STANDINGS_API_CHARNAME,
+    STANDINGS_API_CHARID,
+    STANDINGS_API_CHARNAME,
     create_contacts_set,
     create_entity,
     create_standings_char,
@@ -65,31 +65,31 @@ class TestContactSetManager(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         load_eve_entities()
-        cls.user = AuthUtils.create_member(TEST_STANDINGS_API_CHARNAME)
+        cls.user = AuthUtils.create_member(STANDINGS_API_CHARNAME)
         character = create_standings_char()
         add_character_to_user(
             cls.user, character, scopes=["esi-alliances.read_contacts.v1"]
         )
 
-    @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
+    @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
     def test_standings_character_exists(self):
         character = create_standings_char()
         self.assertEqual(app_config.owner_character(), character)
 
-    @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
+    @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
     @patch(MODELS_PATH + ".EveCharacter.objects.create_character")
     def test_standings_character_not_exists(self, mock_create_character):
         character, _ = EveCharacter.objects.get_or_create(
-            character_id=TEST_STANDINGS_API_CHARID,
+            character_id=STANDINGS_API_CHARID,
             defaults={
-                "character_name": TEST_STANDINGS_API_CHARNAME,
+                "character_name": STANDINGS_API_CHARNAME,
                 "corporation_id": 2099,
                 "corporation_name": "Dummy Corp",
             },
         )
         mock_create_character.return_value = character
         self.assertEqual(app_config.owner_character(), character)
-        self.assertTrue(EveEntity.objects.filter(id=TEST_STANDINGS_API_CHARID).exists())
+        self.assertTrue(EveEntity.objects.filter(id=STANDINGS_API_CHARID).exists())
 
 
 class TestContactSetManager_CreateNewFromApi(TestCaseWithClearCache):
@@ -255,7 +255,7 @@ class TestAbstractStandingsRequestManager(TestCase):
 
 
 @patch(MANAGERS_PATH + ".SR_NOTIFICATIONS_ENABLED", True)
-@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", TEST_STANDINGS_API_CHARID)
+@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
 @patch(MODELS_PATH + ".SR_STANDING_TIMEOUT_HOURS", 24)
 @patch(MANAGERS_PATH + ".notify")
 class TestAbstractStandingsRequestProcessRequests(TestCase):
@@ -599,13 +599,13 @@ class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
         alliance_ct = EveEntityAllianceFactory()
         faction_ct = EveEntityFactionFactory()
 
-        rq = StandingRequestFactory()
+        rq = StandingRequestCharacterFactory()
         EveEntityCharacterFactory(id=rq.contact_id)
         corporation_rq = EveEntityCorporationFactory()
         alliance_rq = EveEntityAllianceFactory()
         faction_rq = EveEntityFactionFactory()
 
-        rv = StandingRevocationFactory()
+        rv = StandingRevocationCharacterFactory()
         EveEntityCharacterFactory(id=rv.contact_id)
         corporation_rv = EveEntityCorporationFactory()
         alliance_rv = EveEntityAllianceFactory()
@@ -701,14 +701,14 @@ class TestCharacterAffiliationsManager_UpdateFromEsi(TestCaseWithClearCache):
         alliance_ct = EveEntityAllianceFactory()
         faction_ct = EveEntityFactionFactory()
 
-        rq = StandingRequestFactory()
+        rq = StandingRequestCharacterFactory()
         character_rq = EveEntityCharacterFactory(id=rq.contact_id)
         ca_rq = CharacterAffiliationFactory(character=character_rq)
         corporation_rq = EveEntityCorporationFactory()
         alliance_rq = EveEntityAllianceFactory()
         faction_rq = EveEntityFactionFactory()
 
-        rv = StandingRevocationFactory()
+        rv = StandingRevocationCharacterFactory()
         character_rv = EveEntityCharacterFactory(id=rv.contact_id)
         ca_rv = CharacterAffiliationFactory(character=character_rv)
         corporation_rv = EveEntityCorporationFactory()

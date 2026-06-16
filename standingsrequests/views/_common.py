@@ -12,7 +12,7 @@ from standingsrequests.constants import DATETIME_FORMAT_HTML
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
 from standingsrequests.helpers.evecharacter import EveCharacterHelper
-from standingsrequests.helpers.evecorporation import EveCorporation
+from standingsrequests.helpers.evecorporation import EveCorporationHelper
 from standingsrequests.models import (
     AbstractStandingsRequest,
     Contact,
@@ -123,7 +123,7 @@ class OrganizationInfo:
         cls,
         quick_check: bool,
         eve_characters: Dict[int, EveCharacter],
-        eve_corporations: Dict[int, EveCorporation],
+        eve_corporations: Dict[int, EveCorporationHelper],
         req: AbstractStandingsRequest,
     ) -> "OrganizationInfo":
         if req.is_character:
@@ -248,11 +248,11 @@ def compose_standing_requests_data(
 # TODO: remove EveCorporation usage
 def _preload_eve_corporations(
     requests_qs: QuerySet,
-) -> Dict[int, EveCorporation]:
+) -> Dict[int, EveCorporationHelper]:
     corporation_ids = requests_qs.filter(
         contact_type_id=ContactTypeId.CORPORATION
     ).values_list("contact_id", flat=True)
-    corporations = EveCorporation.get_many_by_id(corporation_ids)
+    corporations = EveCorporationHelper.get_many_by_id(corporation_ids)
     eve_corporations = {
         corporation.corporation_id: corporation for corporation in corporations
     }
