@@ -7,7 +7,6 @@ import factory.fuzzy
 
 # import datetime as dt
 from django.utils.timezone import now
-from eveuniverse.models import EveEntity
 from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,
@@ -25,6 +24,7 @@ from standingsrequests.models import (
     CharacterAffiliation,
     Contact,
     ContactSet,
+    CorporationDetails,
     FrozenAlt,
     FrozenAuthUser,
     StandingRequest,
@@ -147,6 +147,7 @@ class UserMainRequestorFactory(UserMainFactory):
 class UserMainApproverFactory(UserMainFactory):
     permissions__ = [
         "standingsrequests.affect_standings",
+        "standingsrequests.request_standings",
         "standingsrequests.view",
     ]
 
@@ -196,6 +197,20 @@ class CharacterAffiliationFactory(
     character = factory.SubFactory(EveEntityCharacterFactory)
     corporation = factory.SubFactory(EveEntityCorporationFactory)
     faction = factory.SubFactory(EveEntityFactionFactory)
+
+
+class CorporationDetailsFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[CorporationDetails]
+):
+    class Meta:
+        model = CorporationDetails
+
+    alliance = factory.SubFactory(EveEntityAllianceFactory)
+    ceo = factory.SubFactory(EveEntityCharacterFactory)
+    corporation = factory.SubFactory(EveEntityCorporationFactory)
+    faction = None
+    member_count = factory.fuzzy.FuzzyInteger(10, 1000)
+    ticker = factory.LazyAttribute(lambda o: o.corporation.name[:4].upper())
 
 
 class ContactSetFactory(
@@ -250,7 +265,6 @@ class _StandingRequestFactory(
         pending = factory.Trait(
             is_effective=False,
             action_by=factory.SubFactory(UserMainApproverFactory),
-            action_date=factory.LazyFunction(now),
         )
         effective = factory.Trait(
             is_effective=True,
@@ -272,7 +286,7 @@ class StandingRequestCharacterFactory(_StandingRequestFactory):
 
 
 class StandingRequestCorporationFactory(_StandingRequestFactory):
-    contact_id = (factory.fuzzy.FuzzyInteger(98_800_001, 98_899_999),)
+    contact_id = factory.fuzzy.FuzzyInteger(98_800_001, 98_899_999)
     contact_type_id = ContactTypeId.CORPORATION
 
 
@@ -284,6 +298,15 @@ class _StandingRevocationFactory(
 
     class Params:
         standing_request = None  # when set will copy attributes
+        pending = factory.Trait(
+            is_effective=False,
+            action_by=factory.SubFactory(UserMainApproverFactory),
+        )
+        effective = factory.Trait(
+            is_effective=True,
+            action_by=factory.SubFactory(UserMainApproverFactory),
+            action_date=factory.LazyFunction(now),
+        )
 
     reason = AbstractStandingsRequest.Reason.NONE
 
@@ -366,5 +389,5 @@ class FrozenAltCharacterFactory(
     alliance = factory.SubFactory(EveEntityAllianceFactory)
     character = factory.SubFactory(EveEntityCharacterFactory)
     corporation = factory.SubFactory(EveEntityCorporationFactory)
-    category = EveEntity.CATEGORY_CHARACTER
+    category = FrozenAlt.Category.CHARACTER
     faction = factory.SubFactory(EveEntityFactionFactory)

@@ -5,21 +5,19 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils.timezone import now
 
-from allianceauth.eveonline.models import EveCharacter
-from allianceauth.tests.auth_utils import AuthUtils
+from app_utils.testdata_factories import EveCharacterFactory
 from app_utils.testing import add_character_to_user
 
 from standingsrequests.models import StandingRequest
-from standingsrequests.tests.testdata.my_test_data import (
-    STANDINGS_ALLIANCE_ID,
-    create_contacts_set,
-    create_entity,
-    load_eve_entities,
+from standingsrequests.tests.testdata.factories import (
+    ContactCharacterFactory,
+    ContactSetFactory,
+    UserMainRequestorFactory,
 )
 
 PACKAGE_PATH = "standingsrequests.management.commands"
-TEST_USER_NAME = "Peter Parker"
 TEST_REQUIRED_SCOPE = "mind_reading.v1"
+STANDINGS_ALLIANCE_ID = 99_000_123
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
@@ -36,36 +34,35 @@ class TestSyncRequests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = AuthUtils.create_member(TEST_USER_NAME)
-        AuthUtils.add_permission_to_user_by_name(
-            StandingRequest.REQUEST_PERMISSION_NAME, cls.user
-        )
-        load_eve_entities()
-
-    def setUp(self):
-        self.contacts_set = create_contacts_set()
-        self.out = StringIO()
+        EveCharacterFactory(alliance_id=STANDINGS_ALLIANCE_ID)
+        cls.main_character = EveCharacterFactory(alliance_id=STANDINGS_ALLIANCE_ID)
 
     def test_abort_if_input_is_not_y(self, mock_get_input):
         mock_get_input.return_value = "N"
-        alt = create_entity(EveCharacter, 1010)
-        add_character_to_user(self.user, alt, scopes=[TEST_REQUIRED_SCOPE])
 
-        call_command("standingsrequests_sync_blue_alts", stdout=self.out)
+        # when
+        call_command("standingsrequests_sync_blue_alts", stdout=StringIO())
 
+        # then
         self.assertEqual(StandingRequest.objects.count(), 0)
 
     def test_creates_new_request_for_blue_alt(self, mock_get_input):
+        # given
         mock_get_input.return_value = "Y"
-        alt = create_entity(EveCharacter, 1010)
-        add_character_to_user(self.user, alt, scopes=[TEST_REQUIRED_SCOPE])
+        user = UserMainRequestorFactory(main_character__character=self.main_character)
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt, scopes=["dummy"])
+        cs = ContactSetFactory()
+        ContactCharacterFactory(contact_set=cs, contact_id=alt.character_id, standing=5)
 
-        call_command("standingsrequests_sync_blue_alts", stdout=self.out)
+        # when
+        call_command("standingsrequests_sync_blue_alts", stdout=StringIO())
 
+        # then
         self.assertEqual(StandingRequest.objects.count(), 1)
         request = StandingRequest.objects.first()
-        self.assertEqual(request.user, self.user)
-        self.assertEqual(request.contact_id, 1010)
+        self.assertEqual(request.user, user)
+        self.assertEqual(request.contact_id, alt.character_id)
         self.assertEqual(request.is_effective, True)
         self.assertAlmostEqual((now() - request.request_date).seconds, 0, delta=30)
         self.assertAlmostEqual((now() - request.action_date).seconds, 0, delta=30)

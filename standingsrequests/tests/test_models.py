@@ -45,6 +45,83 @@ class TestAbstractStandingsRequest_ReportType(NoSocketsTestCase):
         self.assertTrue(sr.is_standing_revocation)
 
 
+class TestAbstractStandingsRequest_EvaluateEffectiveStanding(NoSocketsTestCase):
+    def test_should_report_whether_standing_request_is_satisfied_only(self):
+        cases = [
+            ("positive standing", 10, True),
+            ("negative standing", -10, False),
+            ("no standing", None, False),
+        ]
+        for name, standing, want in cases:
+            with self.subTest(name=name):
+                # given
+                if standing is not None:
+                    contact = ContactCharacterFactory(standing=standing)
+                    sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
+                else:
+                    sr = StandingRequestCharacterFactory()
+
+                # when
+                got = sr.evaluate_effective_standing(check_only=True)
+
+                # then
+                self.assertEqual(got, want)
+                sr.refresh_from_db()
+                self.assertFalse(sr.is_effective)
+
+    def test_should_report_whether_standing_revocation_is_satisfied_only(self):
+        cases = [
+            ("positive standing", 10, False),
+            ("negative standing", -10, True),
+            ("no standing", None, True),
+        ]
+        for name, standing, want in cases:
+            with self.subTest(name=name):
+                # given
+                if standing is not None:
+                    contact = ContactCharacterFactory(standing=standing)
+                    sr = StandingRevocationCharacterFactory(
+                        contact_id=contact.contact_id
+                    )
+                else:
+                    sr = StandingRevocationCharacterFactory()
+
+                # when
+                got = sr.evaluate_effective_standing(check_only=True)
+
+                # then
+                self.assertEqual(got, want)
+                sr.refresh_from_db()
+                self.assertFalse(sr.is_effective)
+
+    def test_should_report_standing_request_as_satisfied_and_mark_as_effective(self):
+        # given
+        contact = ContactCharacterFactory(standing=10)
+        sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
+
+        # when
+        got = sr.evaluate_effective_standing(check_only=False)
+
+        # when
+        self.assertTrue(got)
+        sr.refresh_from_db()
+        self.assertTrue(sr.is_effective)
+        self.assertIsInstance(sr.effective_date, datetime)
+
+    def test_should_report_standing_revocation_as_satisfied_and_mark_as_effective(self):
+        # given
+        sr = StandingRevocationCharacterFactory()
+
+        # when
+        got = sr.evaluate_effective_standing(check_only=False)
+
+        # when
+        self.assertTrue(got)
+        sr.refresh_from_db()
+        self.assertTrue(sr.is_effective)
+        self.assertIsInstance(sr.effective_date, datetime)
+
+
 class TestCharacterAffiliation_CharacterName(NoSocketsTestCase):
     def test_should_return_character_name(self):
         # given
@@ -227,37 +304,6 @@ class TestStandingRequest_MarkEffective(NoSocketsTestCase):
         sr.refresh_from_db()
         self.assertTrue(sr.is_effective)
         self.assertEqual(sr.effective_date, my_date)
-
-
-class TestStandingRequest_EvaluateEffectiveStanding(NoSocketsTestCase):
-    def test_should_report_whether_standing_is_satisfied_only(self):
-        cases = [
-            (10, True),
-            (-10, False),
-            (None, False),
-        ]
-        for standing, want in cases:
-            if standing is not None:
-                contact = ContactCharacterFactory(standing=standing)
-            sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
-            got = sr.evaluate_effective_standing(check_only=True)
-            self.assertEqual(got, want)
-            sr.refresh_from_db()
-            self.assertFalse(sr.is_effective)
-
-    def test_should_report_standing_as_satisfied_and_mark_as_effective(self):
-        # given
-        contact = ContactCharacterFactory(standing=10)
-        sr = StandingRequestCharacterFactory(contact_id=contact.contact_id)
-
-        # when
-        got = sr.evaluate_effective_standing()
-
-        # when
-        self.assertTrue(got)
-        sr.refresh_from_db()
-        self.assertTrue(sr.is_effective)
-        self.assertIsInstance(sr.effective_date, datetime)
 
 
 class TestStandingRequest_CheckActionedTimeout(NoSocketsTestCase):

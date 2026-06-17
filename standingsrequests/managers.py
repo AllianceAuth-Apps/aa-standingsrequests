@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from standingsrequests.models import (
         AbstractStandingsRequest,
         ContactSet,
+        RequestLogEntry,
         StandingRequest,
     )
 
@@ -230,14 +231,20 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
 
         organization = app_config.standings_source_entity()
         organization_name = organization.name if organization else ""
+
         query: models.QuerySet[AbstractStandingsRequest] = self.all()
         for standing_request in query:
-            contact = EveEntity.objects.get_or_create_esi(
-                id=standing_request.contact_id
-            )[0]
+            contact_id = standing_request.contact_id
+            contact, _ = EveEntity.objects.get_or_create_esi(id=contact_id)
             is_currently_effective = standing_request.is_effective
             is_satisfied_standing = standing_request.evaluate_effective_standing()
-            if is_satisfied_standing and not is_currently_effective:
+
+            if is_satisfied_standing and is_currently_effective:
+                # Just catching all other contact types (corps/alliances)
+                # that are set effective
+                pass
+
+            elif is_satisfied_standing and not is_currently_effective:
                 if SR_NOTIFICATIONS_ENABLED:
                     self._notify_user_about_standing_change(
                         organization_name=organization_name,
@@ -250,16 +257,11 @@ class _AbstractStandingsRequestManagerBase(models.Manager):
                 if standing_request.is_standing_revocation:
                     self._remove_standing_request_after_revocation(standing_request)
 
-            elif is_satisfied_standing:
-                # Just catching all other contact types (corps/alliances)
-                # that are set effective
-                pass
-
             elif not is_satisfied_standing and is_currently_effective:
                 # Effective standing no longer effective
                 self._removing_effective_standing(standing_request)
 
-            else:
+            elif not is_satisfied_standing and not is_currently_effective:
                 # Check the standing hasn't been set actioned
                 # and not updated in game
                 actioned_timeout = standing_request.check_actioned_timeout()
@@ -766,7 +768,10 @@ class RequestLogEntryQuerySet(FrozenQuerySetMixin, models.QuerySet):
 class RequestLogEntryManagerBase(models.Manager):
     # TODO: This method should be called as tasks, and entities should be resolved
     def create_from_standing_request(
-        self, standing_request: AbstractStandingsRequest, action, action_by: User
+        self,
+        standing_request: AbstractStandingsRequest,
+        action: RequestLogEntry.Action,
+        action_by: User,
     ) -> Optional[Any]:
         from standingsrequests.models import FrozenAlt, FrozenAuthUser, RequestLogEntry
 
@@ -881,13 +886,20 @@ class FrozenAltManagerBase(models.Manager):
         if standing_request.is_character:
             category = self.model.Category.CHARACTER
             character = eve_entity
+
             try:
                 alliance = character.character_affiliation.alliance
-                corporation = character.character_affiliation.corporation
-                faction = character.character_affiliation.faction
             except ObjectDoesNotExist:
                 alliance = None
+
+            try:
+                corporation = character.character_affiliation.corporation
+            except ObjectDoesNotExist:
                 corporation = None
+
+            try:
+                faction = character.character_affiliation.faction
+            except ObjectDoesNotExist:
                 faction = None
 
         elif standing_request.is_corporation:
@@ -896,9 +908,12 @@ class FrozenAltManagerBase(models.Manager):
             corporation = eve_entity
             try:
                 alliance = corporation.corporation_details.alliance
-                faction = corporation.corporation_details.faction
             except ObjectDoesNotExist:
                 alliance = None
+
+            try:
+                faction = corporation.corporation_details.faction
+            except ObjectDoesNotExist:
                 faction = None
 
         else:

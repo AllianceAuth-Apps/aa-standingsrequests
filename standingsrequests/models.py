@@ -298,9 +298,10 @@ class AbstractStandingsRequest(models.Model):
     @classmethod
     def is_standing_satisfied(cls, standing: float) -> bool:
         if standing is not None:
-            return (
+            result = (
                 cls.EXPECT_STANDING_GTEQ <= float(standing) <= cls.EXPECT_STANDING_LTEQ
             )
+            return result
 
         return False
 
@@ -333,8 +334,8 @@ class AbstractStandingsRequest(models.Model):
             logger.debug("Checking standing for %d", self.contact_id)
             latest = ContactSet.objects.latest()
             contact: Contact = latest.contacts.get(eve_entity_id=self.contact_id)
-            if self.is_standing_satisfied(contact.standing):
-                # Standing is satisfied
+            is_satisfied = self.is_standing_satisfied(contact.standing)
+            if is_satisfied:
                 logger.debug("Standing satisfied for %d", self.contact_id)
                 if not check_only:
                     self.mark_effective()
@@ -453,7 +454,7 @@ class StandingRequest(AbstractStandingsRequest):
     Standing Requests (SR) can have one of 3 states:
     - new: Newly created SRs represent a new request from a user.
         They are not actioned and not effective
-    - actionied: A standing manager marks a SR as actioned,
+    - actioned: A standing manager marks a SR as actioned,
         once he has set the new standing in-game
     - effective: Once the new standing is returned from the API a SR is marked effective.
         Effective SRs stay in database to represent that a user has standing.
