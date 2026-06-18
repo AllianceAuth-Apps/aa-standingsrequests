@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
-from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
+from app_utils.testdata_factories import EveCharacterFactory
 from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
 from standingsrequests.models import (
@@ -17,9 +17,10 @@ from standingsrequests.tests.testdata.factories import (
     ContactCharacterFactory,
     ContactCorporationFactory,
     ContactSetFactory,
-    EveCorporationHelperFactory,
     StandingRequestCharacterFactory,
+    StandingRequestCorporationFactory,
     StandingRevocationCharacterFactory,
+    StandingRevocationCorporationFactory,
     UserMainApproverFactory,
     UserMainRequestorFactory,
 )
@@ -449,121 +450,131 @@ class TestStandingRequest_Delete(NoSocketsTestCase):
         )
 
 
-@patch(MODELS_PATH + ".EveCorporationHelper.get_by_id")
-class TestStandingRequest_CanRequestCorporationStanding(NoSocketsTestCase):
-    def test_should_confirm_when_user_owns_all_members(self, mock_get_corp_by_id):
+@patch(CORE_PATH + ".app_config.STR_ALLIANCE_IDS", [STANDINGS_ALLIANCE_ID])
+@patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance")
+class TestStandingRequest_Remove_Character(NoSocketsTestCase):
+    def test_should_remove_pending_character_request(self):
         # given
-        scope_name = "special_scope"
-        cs = ContactSetFactory()
-        corporation = EveCorporationInfoFactory(member_count=2)
-        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
-            corporation=corporation
-        )
-        ContactCorporationFactory(
-            contact_set=cs, contact_id=corporation.corporation_id, standing=10
-        )
-        user = UserMainRequestorFactory(
-            main_character__character=EveCharacterFactory(corporation=corporation),
-            main_character__scopes=[scope_name],
-        )
-        add_character_to_user(
-            user, EveCharacterFactory(corporation=corporation), scopes=[scope_name]
-        )
+        character = EveCharacterFactory()
+        sr = StandingRequestCharacterFactory(contact_id=character.character_id)
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
-            got = StandingRequest.can_request_corporation_standing(
-                corporation.corporation_id, user
-            )
+        got = sr.remove()
 
         # then
         self.assertTrue(got)
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
 
-    def test_should_deny_when_user_does_not_own_all_members(self, mock_get_corp_by_id):
-        # given
-        scope_name = "special_scope"
-        cs = ContactSetFactory()
-        corporation = EveCorporationInfoFactory(member_count=2)
-        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
-            corporation=corporation
-        )
-        ContactCorporationFactory(
-            contact_set=cs, contact_id=corporation.corporation_id, standing=10
-        )
-        user = UserMainRequestorFactory(
-            main_character__character=EveCharacterFactory(corporation=corporation),
-            main_character__scopes=[scope_name],
-        )
-
-        # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
-            got = StandingRequest.can_request_corporation_standing(
-                corporation.corporation_id, user
-            )
-
-        # then
-        self.assertFalse(got)
-
-    def test_should_deny_when_user_owns_all_members_but_some_scopes_are_incorrect(
-        self, mock_get_corp_by_id
+    def test_should_not_remove_character_request_when_member_of_standing_organization(
+        self,
     ):
         # given
-        scope_name = "special_scope"
-        cs = ContactSetFactory()
-        corporation = EveCorporationInfoFactory(member_count=2)
-        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
-            corporation=corporation
-        )
-        ContactCorporationFactory(
-            contact_set=cs, contact_id=corporation.corporation_id, standing=10
-        )
-        user = UserMainRequestorFactory(
-            main_character__character=EveCharacterFactory(corporation=corporation),
-            main_character__scopes=[scope_name],
-        )
-        add_character_to_user(
-            user, EveCharacterFactory(corporation=corporation), scopes=["incorrect"]
-        )
+        character = EveCharacterFactory(alliance_id=STANDINGS_ALLIANCE_ID)
+        sr = StandingRequestCharacterFactory(contact_id=character.character_id)
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
-            got = StandingRequest.can_request_corporation_standing(
-                corporation.corporation_id, user
-            )
+        got = sr.remove()
 
         # then
         self.assertFalse(got)
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
 
-    def test_should_deny_when_some_members_are_owned_by_another_user(
-        self, mock_get_corp_by_id
+    def test_should_not_remove_character_request_when_it_has_pending_revocation(
+        self,
     ):
         # given
-        scope_name = "special_scope"
-        cs = ContactSetFactory()
-        corporation = EveCorporationInfoFactory(member_count=2)
-        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
-            corporation=corporation
-        )
-        ContactCorporationFactory(
-            contact_set=cs, contact_id=corporation.corporation_id, standing=10
-        )
-        user = UserMainRequestorFactory(
-            main_character__character=EveCharacterFactory(corporation=corporation),
-            main_character__scopes=[scope_name],
-        )
-        UserMainRequestorFactory(
-            main_character__character=EveCharacterFactory(corporation=corporation),
-            main_character__scopes=[scope_name],
-        )
+        character = EveCharacterFactory()
+        ContactCharacterFactory(contact_id=character.character_id)
+        sr = StandingRequestCharacterFactory(contact_id=character.character_id)
+        StandingRevocationCharacterFactory(contact_id=character.character_id)
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
-            got = StandingRequest.can_request_corporation_standing(
-                corporation.corporation_id, user
-            )
+        got = sr.remove()
 
         # then
         self.assertFalse(got)
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+
+class TestStandingRequest_Remove_Corporation(NoSocketsTestCase):
+    def test_should_remove_initial_corporation_request(self):
+        # given
+        sr = StandingRequestCorporationFactory()
+
+        # when
+        got = sr.remove()
+
+        # then
+        self.assertTrue(got)
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+    def test_should_remove_pending_corporation_request(self):
+        # given
+        sr = StandingRequestCorporationFactory(pending=True)
+
+        # when
+        got = sr.remove()
+
+        # then
+        self.assertTrue(got)
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+    def test_should_remove_actioned_corporation_request(self):
+        # given
+        sr = StandingRequestCorporationFactory(actioned=True)
+
+        # when
+        got = sr.remove()
+
+        # then
+        self.assertTrue(got)
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+    def test_should_not_remove_corporation_request_with_revocation_when_not_satisfied(
+        self,
+    ):
+        # given
+        ContactSetFactory()
+        sr = StandingRequestCorporationFactory()
+        StandingRevocationCorporationFactory(contact_id=sr.contact_id)
+
+        # when
+        got = sr.remove()
+
+        # then
+        self.assertFalse(got)
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+    def test_should_not_remove_corporation_request_with_revocation_when_no_standing(
+        self,
+    ):
+        # given
+        sr = StandingRequestCorporationFactory()
+        StandingRevocationCorporationFactory(contact_id=sr.contact_id)
+
+        # when
+        got = sr.remove()
+
+        # then
+        self.assertFalse(got)
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+    def test_should_not_remove_corporation_request_with_revocation_when_satisfied(
+        self,
+    ):
+        # given
+        contact = ContactCorporationFactory(standing=5)
+        sr = StandingRequestCorporationFactory(
+            contact_id=contact.contact_id, actioned=True
+        )
+        StandingRevocationCorporationFactory(contact_id=contact.contact_id)
+
+        # when
+        got = sr.remove()
+
+        # then
+        self.assertTrue(got)
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
 
 
 class TestStandingRequest_GetRequiredScopesForState(NoSocketsTestCase):

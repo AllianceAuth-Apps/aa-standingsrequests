@@ -8,7 +8,10 @@ from eveuniverse.tests.testdata.factories_2 import EveEntityAllianceFactory
 from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
 from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.helpers.evecorporation import EveCorporationHelper
+from standingsrequests.helpers.evecorporation import (
+    EveCorporationHelper,
+    user_can_request_corporation_standing,
+)
 from standingsrequests.tests.testdata.factories import (
     EveCorporationHelperFactory,
     UserMainRequestorFactory,
@@ -307,6 +310,107 @@ class TestEveCorporation_UserHasAllMemberTokens(NoSocketsTestCase):
         # when
         with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
             got = corporation_2.user_has_all_member_tokens(user)
+
+        # then
+        self.assertFalse(got)
+
+
+@patch(EVECORPORATION_PATH + ".EveCorporationHelper.get_by_id")
+class TestUserCanRequestCorporationStanding(NoSocketsTestCase):
+    def test_should_confirm_when_user_owns_all_members(self, mock_get_corp_by_id):
+        # given
+        scope_name = "special_scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        add_character_to_user(
+            user, EveCharacterFactory(corporation=corporation), scopes=[scope_name]
+        )
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = user_can_request_corporation_standing(
+                user, corporation.corporation_id
+            )
+
+        # then
+        self.assertTrue(got)
+
+    def test_should_deny_when_user_does_not_own_all_members(self, mock_get_corp_by_id):
+        # given
+        scope_name = "special_scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = user_can_request_corporation_standing(
+                user, corporation.corporation_id
+            )
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_deny_when_user_owns_all_members_but_some_scopes_are_incorrect(
+        self, mock_get_corp_by_id
+    ):
+        # given
+        scope_name = "special_scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        add_character_to_user(
+            user, EveCharacterFactory(corporation=corporation), scopes=["incorrect"]
+        )
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = user_can_request_corporation_standing(
+                user, corporation.corporation_id
+            )
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_deny_when_some_members_are_owned_by_another_user(
+        self, mock_get_corp_by_id
+    ):
+        # given
+        scope_name = "special_scope"
+        corporation = EveCorporationInfoFactory(member_count=2)
+        mock_get_corp_by_id.return_value = EveCorporationHelperFactory(
+            corporation=corporation
+        )
+        user = UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+        UserMainRequestorFactory(
+            main_character__character=EveCharacterFactory(corporation=corporation),
+            main_character__scopes=[scope_name],
+        )
+
+        # when
+        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+            got = user_can_request_corporation_standing(
+                user, corporation.corporation_id
+            )
 
         # then
         self.assertFalse(got)

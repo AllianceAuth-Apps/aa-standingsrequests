@@ -26,6 +26,9 @@ from standingsrequests.app_settings import SR_NOTIFICATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult, OperationMode
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
+from standingsrequests.helpers.evecorporation import (
+    user_can_request_corporation_standing,
+)
 from standingsrequests.providers import esi
 
 if TYPE_CHECKING:
@@ -391,25 +394,21 @@ class StandingRequestManager(AbstractStandingsRequestManager):
 
         returns the number of invalid requests
         """
-        from standingsrequests.models import StandingRevocation
+        from standingsrequests.models import StandingRequest, StandingRevocation
 
         logger.debug("Validating standings requests")
         invalid_count = 0
-        for standing_request in self.all():
-            logger.debug(
-                "Checking request for contact_id %d", standing_request.contact_id
-            )
+        sr: StandingRequest
+        for sr in self.all():
+            logger.debug("Checking request for contact_id %d", sr.contact_id)
             reason = StandingRevocation.Reason.NONE
-            if not standing_request.user.has_perm(self.model.REQUEST_PERMISSION_NAME):
+            if not sr.user.has_perm(StandingRequest.REQUEST_PERMISSION_NAME):
                 logger.debug("Request is invalid, user does not have permission")
                 reason = StandingRevocation.Reason.LOST_PERMISSION
                 is_valid = False
 
-            elif (
-                standing_request.is_corporation
-                and not self.model.can_request_corporation_standing(
-                    standing_request.contact_id, standing_request.user
-                )
+            elif sr.is_corporation and not user_can_request_corporation_standing(
+                user=sr.user, corporation_id=sr.contact_id
             ):
                 logger.debug("Request is invalid, not all corp API keys recorded.")
                 reason = StandingRevocation.Reason.MISSING_CORP_TOKEN
@@ -422,14 +421,12 @@ class StandingRequestManager(AbstractStandingsRequestManager):
                 logger.info(
                     "Standing request for contact_id %d no longer valid. "
                     "Creating revocation",
-                    standing_request.contact_id,
+                    sr.contact_id,
                 )
                 StandingRevocation.objects.add_revocation(
-                    contact_id=standing_request.contact_id,
-                    contact_type=self.model.contact_id_2_type(
-                        standing_request.contact_type_id
-                    ),
-                    user=standing_request.user,
+                    contact_id=sr.contact_id,
+                    contact_type=self.model.contact_id_2_type(sr.contact_type_id),
+                    user=sr.user,
                     reason=reason,
                 )
                 invalid_count += 1
@@ -443,6 +440,7 @@ class StandingRequestManager(AbstractStandingsRequestManager):
         from standingsrequests.models import (
             ContactSet,
             RequestLogEntry,
+            StandingRequest,
             StandingRevocation,
         )
 
@@ -456,11 +454,6 @@ class StandingRequestManager(AbstractStandingsRequestManager):
         except ObjectDoesNotExist:
             return CreateCharacterRequestResult.USER_IS_NOT_OWNER
 
-        try:
-            contact_set = ContactSet.objects.latest()
-        except ContactSet.DoesNotExist:
-            logger.warning("Failed to get a contact set")
-            return CreateCharacterRequestResult.UNKNOWN_ERROR
         character_id = character.character_id
 
         if self.has_pending_request(
@@ -478,8 +471,14 @@ class StandingRequestManager(AbstractStandingsRequestManager):
         sr = self.get_or_create_2(
             user=user,
             contact_id=character_id,
-            contact_type=self.model.ContactType.CHARACTER,
+            contact_type=StandingRequest.ContactType.CHARACTER,
         )
+
+        try:
+            contact_set = ContactSet.objects.latest()
+        except ContactSet.DoesNotExist:
+            return CreateCharacterRequestResult.NO_ERROR
+
         if contact_set.contact_has_satisfied_standing(character_id):
             sr.mark_actioned(user=None, reason=sr.Reason.STANDING_IN_GAME)
             sr.mark_effective()
@@ -491,26 +490,34 @@ class StandingRequestManager(AbstractStandingsRequestManager):
 
     def create_corporation_request(self, user: User, corporation_id: int) -> bool:
         """Create new corporation standings request for user if possible."""
-        from standingsrequests.models import StandingRevocation
+        from standingsrequests.models import StandingRequest, StandingRevocation
 
-        if self.has_pending_request(
-            corporation_id
-        ) or StandingRevocation.objects.has_pending_request(corporation_id):
+        if self.has_pending_request(corporation_id):
             logger.warning(
                 "Contact ID %d already has a pending request", corporation_id
             )
             return False
-        if not self.model.can_request_corporation_standing(corporation_id, user):
+
+        if StandingRevocation.objects.has_pending_request(corporation_id):
+            logger.warning(
+                "Contact ID %d already has a pending revocation", corporation_id
+            )
+            return False
+
+        if not user_can_request_corporation_standing(
+            user=user, corporation_id=corporation_id
+        ):
             logger.warning(
                 "User %s does not have enough keys for corpID %d, forbidden",
                 user,
                 corporation_id,
             )
             return False
+
         self.get_or_create_2(
             user=user,
             contact_id=corporation_id,
-            contact_type=self.model.ContactType.CORPORATION,
+            contact_type=StandingRequest.ContactType.CORPORATION,
         )
         return True
 

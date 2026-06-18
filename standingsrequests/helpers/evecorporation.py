@@ -200,3 +200,24 @@ class EveCorporationHelper:
         results_raw = (f.result() for f in futures)
         results = [obj for obj in results_raw if obj is not None]
         return results
+
+
+def user_can_request_corporation_standing(user: User, corporation_id: int) -> bool:
+    """
+    Report whether user is permitted to request standing for a corporation.
+
+    A user must own all of the required corp tokens to be permitted to request standing.
+
+    Params
+    - corporation_id: corp to check for
+    - user: User to check for
+
+    returns True if they can request standings, False if they cannot
+    """
+    corporation = EveCorporationHelper.get_by_id(corporation_id)
+    is_permitted = (
+        corporation is not None
+        and not corporation.is_npc
+        and corporation.user_has_all_member_tokens(user)
+    )
+    return is_permitted

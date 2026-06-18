@@ -1,18 +1,24 @@
 import datetime as dt
+from http import HTTPStatus
 from unittest.mock import patch
 
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import EveEntityAllianceFactory
 
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
-from app_utils.testing import add_character_to_user
+from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
+from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
 from standingsrequests.core.contact_types import ContactTypeId
 from standingsrequests.models import CharacterAffiliation, Contact, StandingRequest
+from standingsrequests.tests.testdata.factories import ContactSetFactory
 from standingsrequests.tests.testdata.my_test_data import (
+    STANDINGS_ALLIANCE_ID,
+    STANDINGS_API_CHARID,
     create_contacts_set,
     create_eve_objects,
     load_corporation_details,
@@ -26,33 +32,58 @@ TEST_SCOPE = "publicData"
 MODULE_PATH = "standingsrequests.views.standings"
 
 
-@patch("standingsrequests.core.app_config.STANDINGS_API_CHARID", 1001)
-class TestStandingsView(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.factory = RequestFactory()
-        load_eve_entities()
-        create_eve_objects()
-        cls.contact_set = create_contacts_set()
-        CharacterAffiliation.objects.update_eve_character_relations()
-
-        cls.user = AuthUtils.create_member("John Doe")
-        cls.user = AuthUtils.add_permission_to_user_by_name(
-            "standingsrequests.request_standings", cls.user
-        )
-
-    def test_can_open_standings_page(self):
+@patch("standingsrequests.core.app_config.SR_OPERATION_MODE", "alliance")
+@patch("standingsrequests.core.app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
+class TestStandingsView(NoSocketsTestCase):
+    def test_should_open_page_when_user_is_requestor(self):
         # given
-        request = self.factory.get(reverse("standingsrequests:standings"))
-        request.user = self.user
+        cs = ContactSetFactory()
+        EveCharacterFactory(
+            character_id=STANDINGS_API_CHARID, alliance_id=STANDINGS_ALLIANCE_ID
+        )
+        owner_alliance = EveEntityAllianceFactory(id=STANDINGS_ALLIANCE_ID)
+        user = UserMainFactory(
+            permissions__=[
+                "standingsrequests.request_standings",
+            ]
+        )
+        self.client.force_login(user)
+
         # when
-        response = standings.standings(request)
+        response = self.client.get(reverse("standingsrequests:standings"))
+
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.context["lastUpdate"], cs.date)
+        self.assertEqual(response.context["organization"], owner_alliance)
+        self.assertFalse(response.context["show_mains"])
+
+    def test_should_open_page_when_user_is_requestor_and_can_view_standings(self):
+        # given
+        cs = ContactSetFactory()
+        EveCharacterFactory(
+            character_id=STANDINGS_API_CHARID, alliance_id=STANDINGS_ALLIANCE_ID
+        )
+        owner_alliance = EveEntityAllianceFactory(id=STANDINGS_ALLIANCE_ID)
+        user = UserMainFactory(
+            permissions__=[
+                "standingsrequests.request_standings",
+                "standingsrequests.view",
+            ]
+        )
+        self.client.force_login(user)
+
+        # when
+        response = self.client.get(reverse("standingsrequests:standings"))
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.context["lastUpdate"], cs.date)
+        self.assertEqual(response.context["organization"], owner_alliance)
+        self.assertTrue(response.context["show_mains"])
 
 
-class TestCharacterStandingsData(PartialDictEqualMixin, TestCase):
+class TestCharacterStandingsData(PartialDictEqualMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -186,7 +217,7 @@ class TestCharacterStandingsData(PartialDictEqualMixin, TestCase):
         )  # AuthUtils.create_member gives them Member by default
 
 
-class TestCorporationStandingsData(PartialDictEqualMixin, TestCase):
+class TestCorporationStandingsData(PartialDictEqualMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -293,7 +324,7 @@ class TestCorporationStandingsData(PartialDictEqualMixin, TestCase):
         )
 
 
-class TestAllianceStandingsData(PartialDictEqualMixin, TestCase):
+class TestAllianceStandingsData(PartialDictEqualMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

@@ -22,7 +22,6 @@ from standingsrequests.app_settings import SR_REQUIRED_SCOPES, SR_STANDING_TIMEO
 from standingsrequests.constants import OperationMode
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import EveCorporationHelper
 from standingsrequests.helpers.models import (
     FrozenModelMixin,
     GatherEntityIdsMixin,
@@ -487,6 +486,7 @@ class StandingRequest(AbstractStandingsRequest):
             character = EveCharacter.objects.get(character_id=self.contact_id)
         except EveCharacter.DoesNotExist:
             return False
+
         if app_config.is_character_a_member(character):
             logger.warning(
                 "%s: Character %s of user %s is in organization. Can not remove standing",
@@ -495,6 +495,7 @@ class StandingRequest(AbstractStandingsRequest):
                 self.user,
             )
             return False
+
         if StandingRevocation.objects.has_pending_request(self.contact_id):
             logger.debug(
                 "%s: User %s already has a pending standing revocation for character %d",
@@ -503,6 +504,7 @@ class StandingRequest(AbstractStandingsRequest):
                 self.contact_id,
             )
             return False
+
         self.delete(reason=StandingRevocation.Reason.OWNER_REQUEST)
         return True
 
@@ -510,14 +512,8 @@ class StandingRequest(AbstractStandingsRequest):
         """Remove effective corporation standing and pending requests
         for user if possible.
         """
-        try:
-            contact_set = ContactSet.objects.latest()
-        except ContactSet.DoesNotExist:
-            logger.warning("Failed to get a contact set")
-            return False
-        if (
-            self.is_pending or self.is_actioned
-        ) and not StandingRevocation.objects.has_pending_request(self.contact_id):
+        has_pending = StandingRevocation.objects.has_pending_request(self.contact_id)
+        if not has_pending and (self.is_pending or self.is_actioned):
             logger.debug(
                 "%s: Removing standings requests by user %s",
                 self,
@@ -525,9 +521,18 @@ class StandingRequest(AbstractStandingsRequest):
             )
             self.delete(reason=StandingRevocation.Reason.OWNER_REQUEST)
             return True
-        if not contact_set.contact_has_satisfied_standing(self.contact_id):
+
+        try:
+            contact_set = ContactSet.objects.latest()
+        except ContactSet.DoesNotExist:
+            contact_set = None
+
+        if not contact_set or not contact_set.contact_has_satisfied_standing(
+            self.contact_id
+        ):
             logger.debug("%s: Can not remove standing - no standings exist", self)
             return False
+
         # Manual revocation required
         logger.debug("%s: Creating standings revocation by user %s", self, self.user)
         StandingRevocation.objects.add_revocation(
@@ -577,25 +582,6 @@ class StandingRequest(AbstractStandingsRequest):
 
         logger.debug("%s: Removing standing request by user %s", self, self.user)
         super().delete(*args, **kwargs)
-
-    @classmethod
-    def can_request_corporation_standing(cls, corporation_id: int, user: User) -> bool:
-        """
-        Report whether user owns all of the required corp tokens
-        for standings to be permitted
-
-        Params
-        - corporation_id: corp to check for
-        - user: User to check for
-
-        returns True if they can request standings, False if they cannot
-        """
-        corporation = EveCorporationHelper.get_by_id(corporation_id)
-        return (
-            corporation is not None
-            and not corporation.is_npc
-            and corporation.user_has_all_member_tokens(user)
-        )
 
     @classmethod
     def has_required_scopes_for_request(

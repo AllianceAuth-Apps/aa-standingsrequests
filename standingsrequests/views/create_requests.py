@@ -291,7 +291,7 @@ def request_character_standing(request: HttpRequest, character_id: int):
         str(request.user),
         character_id,
     )
-    character = get_object_or_404(
+    character: EveCharacter = get_object_or_404(
         EveCharacter.objects.select_related("character_ownership__user"),
         character_id=character_id,
     )
@@ -307,14 +307,12 @@ def request_character_standing(request: HttpRequest, character_id: int):
         if result is CreateCharacterRequestResult.CHARACTER_IS_MISSING_SCOPES:
             messages.error(
                 request,
-                _("You character %s is missing scopes.")
-                % EveEntity.objects.resolve_name(character_id),
+                _("You character %s is missing scopes.") % character.character_name,
             )
         elif result is CreateCharacterRequestResult.USER_IS_NOT_OWNER:
             messages.error(
                 request,
-                _("You are not the owner of character %s.")
-                % EveEntity.objects.resolve_name(character_id),
+                _("You are not the owner of character %s.") % character.character_name,
             )
         else:
             messages.error(
@@ -323,7 +321,7 @@ def request_character_standing(request: HttpRequest, character_id: int):
                     "An unexpected error occurred when trying to process "
                     "your standing request for %s. Please try again."
                 )
-                % EveEntity.objects.resolve_name(character_id),
+                % character.character_name,
             )
 
     return redirect("standingsrequests:create_requests")
@@ -340,10 +338,10 @@ def remove_character_standing(request: HttpRequest, character_id: int):
         str(request.user),
         character_id,
     )
-    req = get_object_or_404(StandingRequest, user=request.user, contact_id=character_id)
-    success = req.remove()
+    sr = get_object_or_404(StandingRequest, user=request.user, contact_id=character_id)
+    success = sr.remove()
     if not success:
-        messages.warning(
+        messages.error(
             request,
             _(
                 "An unexpected error occurred when trying to process "
@@ -367,7 +365,7 @@ def request_corp_standing(request: HttpRequest, corporation_id):
     if not StandingRequest.objects.create_corporation_request(
         request.user, corporation_id
     ):
-        messages.warning(
+        messages.error(
             request,
             _(
                 "An unexpected error occurred when trying to process "
@@ -387,16 +385,12 @@ def remove_corp_standing(request: HttpRequest, corporation_id: int):
     Handles both removing corp requests and removing existing standings
     """
     logger.debug("remove_corp_standing called by %s", request.user)
-    try:
-        req = StandingRequest.objects.filter(user=request.user).get(
-            contact_id=corporation_id
-        )
-    except StandingRequest.DoesNotExist:
-        success = False
-    else:
-        success = req.remove()
+    sr = get_object_or_404(
+        StandingRequest, user=request.user, contact_id=corporation_id
+    )
+    success = sr.remove()
     if not success:
-        messages.warning(
+        messages.error(
             request,
             _(
                 "An unexpected error occurred when trying to process "

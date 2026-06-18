@@ -221,6 +221,23 @@ class ContactSetFactory(
 
     name = factory.Sequence(lambda o: f"ContactSet #{o + 1}")
 
+    @factory.post_generation
+    def contacts(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        for _ in range(extracted):
+            ContactCharacterFactory(contact_set=self)
+
+    @factory.post_generation
+    def date(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        # needed to overwrite date set by auto date
+        self.date = extracted
+        self.save()
+
 
 class _ContactFactory(
     factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[Contact]
@@ -265,6 +282,12 @@ class _StandingRequestFactory(
         pending = factory.Trait(
             is_effective=False,
             action_by=factory.SubFactory(UserMainApproverFactory),
+            action_date=None,
+        )
+        actioned = factory.Trait(
+            is_effective=False,
+            action_by=factory.SubFactory(UserMainApproverFactory),
+            action_date=factory.LazyFunction(now),
         )
         effective = factory.Trait(
             is_effective=True,

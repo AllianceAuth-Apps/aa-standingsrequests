@@ -1,10 +1,10 @@
 from http import HTTPStatus
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import Http404
-from django.test import RequestFactory, override_settings
+from django.test import RequestFactory
 from django.urls import reverse
 from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
@@ -13,41 +13,28 @@ from eveuniverse.tests.testdata.factories_2 import (
 )
 
 from allianceauth.eveonline.models import EveCharacter
-from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.testdata_factories import EveCharacterFactory
-from app_utils.testing import (
-    NoSocketsTestCase,
-    add_character_to_user,
-    create_user_from_evecharacter,
-)
+from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import EveCorporationHelper
-from standingsrequests.models import (
-    RequestLogEntry,
-    StandingRequest,
-    StandingRevocation,
-)
+from standingsrequests.models import StandingRequest
 from standingsrequests.tests.testdata.factories import (
     StandingRequestCharacterFactory,
+    StandingRequestCorporationFactory,
+    StandingRevocationCharacterFactory,
+    StandingRevocationCorporationFactory,
     UserMainApproverFactory,
     UserMainRequestorFactory,
-)
-from standingsrequests.tests.testdata.my_test_data import (
-    STANDINGS_ALLIANCE_ID,
-    STANDINGS_API_CHARID,
-    STANDINGS_CORPORATION_ID,
-    create_contacts_set,
-    create_entity,
-    get_my_test_data,
 )
 from standingsrequests.views import create_requests
 
 CORE_PATH = "standingsrequests.core"
 MODELS_PATH = "standingsrequests.models"
 MANAGERS_PATH = "standingsrequests.managers"
-HELPERS_EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
 VIEWS_PATH = "standingsrequests.views.create_requests"
+
+STANDINGS_ALLIANCE_ID = 98_000_123
+STANDINGS_API_CHARID = 90_000_123
+STANDINGS_CORPORATION_ID = 97_000_123
 
 
 @patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
@@ -64,7 +51,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         request = self.factory.get(reverse("standingsrequests:view_auth_page"))
         request.user = user
         request.token = token
-        middleware = SessionMiddleware(Mock())
+        middleware = SessionMiddleware(MagicMock())
         middleware.process_request(request)
         orig_view = create_requests.view_auth_page.__wrapped__.__wrapped__.__wrapped__
         return orig_view(request, token)
@@ -238,8 +225,9 @@ class TestIndexView(NoSocketsTestCase):
 #         self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
+@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
 @patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["required_scope"]})
-@patch(MANAGERS_PATH + ".create_eve_entities", Mock())
+@patch(MANAGERS_PATH + ".create_eve_entities", MagicMock())
 @patch(VIEWS_PATH + ".update_associations_api.delay")
 @patch(VIEWS_PATH + ".messages.error")
 class TestRequestCharacterStanding(NoSocketsTestCase):
@@ -247,168 +235,17 @@ class TestRequestCharacterStanding(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
-        create_contacts_set()
-        EveCharacterFactory(character_id=1001)
-        cls.user, _ = create_user_from_evecharacter(
-            1001, permissions=["standingsrequests.request_standings"]
-        )
+        EveCharacterFactory(character_id=STANDINGS_API_CHARID)
 
-    def test_should_create_new_request(
+    def test_should_create_new_pending_request(
         self, mock_message_error, mock_update_associations_api
     ):
         # given
-        character = EveCharacterFactory(character_id=1008)
-        add_character_to_user(self.user, character, scopes=["required_scope"])
-        request = self.factory.get("/")
-        request.user = self.user
-
-        # when
-        response = create_requests.request_character_standing(
-            request, character.character_id
-        )
-
-        # then
-        self.assertFalse(mock_message_error.called)
-        self.assertTrue(mock_update_associations_api.called)
-
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-
-        obj = StandingRequest.objects.get(contact_id=character.character_id)
-        self.assertFalse(obj.is_actioned)
-        self.assertFalse(obj.is_effective)
-
-    def test_should_not_create_new_request_if_character_has_pending_request(
-        self, mock_message_error, mock_update_associations_api
-    ):
-        # given
-        character = EveCharacterFactory(character_id=1110)
-        add_character_to_user(self.user, character, scopes=["required_scope"])
-        StandingRequest.objects.create(
-            contact_id=character.character_id,
-            contact_type_id=ContactTypeId.character_id(),
-            user=self.user,
-        )
-        request = self.factory.get("/")
-        request.user = self.user
-
-        # when
-        response = create_requests.request_character_standing(
-            request, character.character_id
-        )
-
-        # then
-        self.assertTrue(mock_message_error.called)
-        self.assertFalse(mock_update_associations_api.called)
-
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-
-    def test_should_not_create_new_request_if_character_has_pending_revocation(
-        self, mock_message_error, mock_update_associations_api
-    ):
-        # given
-        character = EveCharacterFactory(character_id=1110)
-        add_character_to_user(self.user, character, scopes=["required_scope"])
-        StandingRevocation.objects.create(
-            contact_id=character.character_id,
-            contact_type_id=ContactTypeId.character_id(),
-            user=self.user,
-        )
-        request = self.factory.get("/")
-        request.user = self.user
-
-        # when
-        response = create_requests.request_character_standing(
-            request, character.character_id
-        )
-
-        # then
-        self.assertTrue(mock_message_error.called)
-        self.assertFalse(mock_update_associations_api.called)
-
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-
-        self.assertFalse(StandingRequest.objects.exists())
-
-    def test_should_not_create_new_request_if_character_is_missing_scopes(
-        self, mock_message_error, mock_update_associations_api
-    ):
-        # given
-        character = EveCharacterFactory(character_id=1009)
-        add_character_to_user(self.user, character)
-        request = self.factory.get("/")
-        request.user = self.user
-
-        # when
-        response = create_requests.request_character_standing(
-            request, character.character_id
-        )
-
-        # then
-        self.assertTrue(mock_message_error.called)
-        self.assertFalse(mock_update_associations_api.called)
-
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-
-        self.assertFalse(StandingRequest.objects.exists())
-
-    def test_should_not_create_new_request_if_character_is_not_owned_by_anyone(
-        self, mock_message_error, mock_update_associations_api
-    ):
-        # given
-        character = EveCharacterFactory(character_id=1007)
-        request = self.factory.get("/")
-        request.user = self.user
-
-        # when
-        response = create_requests.request_character_standing(
-            request, character.character_id
-        )
-
-        # then
-        self.assertTrue(mock_message_error.called)
-        self.assertFalse(mock_update_associations_api.called)
-
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-
-        self.assertFalse(StandingRequest.objects.exists())
-
-    def test_should_not_create_new_request_if_character_is_owned_by_somebody_else(
-        self, mock_message_error, mock_update_associations_api
-    ):
-        # given
-        user = AuthUtils.create_member("Peter Parker")
-        character = EveCharacterFactory(character_id=1006)
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
         add_character_to_user(user, character, scopes=["required_scope"])
         request = self.factory.get("/")
-        request.user = self.user
-
-        # when
-        response = create_requests.request_character_standing(
-            request, character.character_id
-        )
-
-        # then
-        self.assertTrue(mock_message_error.called)
-        self.assertFalse(mock_update_associations_api.called)
-
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-
-        self.assertFalse(StandingRequest.objects.exists())
-
-    def test_should_auto_confirm_new_request_if_standing_is_satisfied(
-        self, mock_message_error, mock_update_associations_api
-    ):
-        # given
-        character = EveCharacterFactory(character_id=1110)
-        add_character_to_user(self.user, character, scopes=["required_scope"])
-        request = self.factory.get("/")
-        request.user = self.user
+        request.user = user
 
         # when
         response = create_requests.request_character_standing(
@@ -423,87 +260,89 @@ class TestRequestCharacterStanding(NoSocketsTestCase):
         self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
 
         obj = StandingRequest.objects.get(contact_id=character.character_id)
-        self.assertTrue(obj.is_effective)
-        self.assertEqual(
-            RequestLogEntry.objects.filter(
-                action_by__isnull=True,
-                requested_for__character_id=character.character_id,
-                requested_by__user=self.user,
-                request_type=RequestLogEntry.RequestType.REQUEST,
-                action=RequestLogEntry.Action.CONFIRMED,
-                reason=StandingRequest.Reason.STANDING_IN_GAME,
-            ).count(),
-            1,
+        self.assertTrue(obj.is_pending)
+
+    def test_should_not_create_request_when_character_already_has_pending_request(
+        self, mock_message_error, mock_update_associations_api
+    ):
+        # given
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
+        add_character_to_user(user, character, scopes=["required_scope"])
+        StandingRequestCharacterFactory(contact_id=character.character_id)
+        request = self.factory.get("/")
+        request.user = user
+
+        # when
+        response = create_requests.request_character_standing(
+            request, character.character_id
         )
 
+        # then
+        self.assertTrue(mock_message_error.called)
+        self.assertFalse(mock_update_associations_api.called)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertEqual(StandingRequest.objects.count(), 1)
 
-@patch(CORE_PATH + ".app_config.STR_ALLIANCE_IDS", [3001])
-@patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance")
+
+@patch(VIEWS_PATH + ".messages")
 class TestRemoveCharacterStanding(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
-        create_contacts_set()
-        EveCharacterFactory(character_id=1001)
-        cls.user, _ = create_user_from_evecharacter(
-            1001, permissions=["standingsrequests.request_standings"]
-        )
 
-    def _view_request_pilot_standing(self, character_id: int) -> bool:
-        request = self.factory.get(
-            reverse("standingsrequests:remove_character_standing", args=[character_id])
-        )
-        request.user = self.user
-        with patch(VIEWS_PATH + ".messages.warning") as mock_message:
-            response = create_requests.remove_character_standing(request, character_id)
-            success = not mock_message.called
+    def test_should_remove_request(self, mock_message):
+        # given
+        user = UserMainRequestorFactory()
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt)
+        sr = StandingRequestCharacterFactory(user=user, contact_id=alt.character_id)
+        request = self.factory.get("/")
+        request.user = user
+
+        # when
+        response = create_requests.remove_character_standing(request, alt.character_id)
+
+        # then
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-        return success
+        self.assertFalse(mock_message.error.called)
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
 
-    def test_should_remove_valid_request(self):
+    def test_should_raise_error_when_request_not_found(self, mock_message):
         # given
-        alt_character = EveCharacterFactory(character_id=1110)
-        add_character_to_user(self.user, alt_character, scopes=["publicData"])
-        StandingRequest.objects.get_or_create_2(
-            user=self.user,
-            contact_id=alt_character.character_id,
-            contact_type=StandingRequest.ContactType.CHARACTER,
-        )
+        user = UserMainRequestorFactory()
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt)
+        request = self.factory.get("/")
+        request.user = user
+
         # when
-        result = self._view_request_pilot_standing(alt_character.character_id)
+        with self.assertRaises(Http404):
+            create_requests.remove_character_standing(request, alt.character_id)
+
+    def test_should_not_remove_request_and_show_warning_when_character_has_pending_revocation(
+        self, mock_message
+    ):
+        # given
+        user = UserMainRequestorFactory()
+        alt = EveCharacterFactory()
+        add_character_to_user(user, alt)
+        EveEntityCharacterFactory(id=alt.character_id)
+        sr = StandingRequestCharacterFactory(user=user, contact_id=alt.character_id)
+        StandingRevocationCharacterFactory(user=user, contact_id=alt.character_id)
+        request = self.factory.get("/")
+        request.user = user
+
+        # when
+        response = create_requests.remove_character_standing(request, alt.character_id)
+
         # then
-        self.assertTrue(result)
-        self.assertFalse(
-            StandingRequest.objects.filter(
-                contact_id=alt_character.character_id
-            ).exists()
-        )
-
-    def test_should_not_remove_request_if_character_not_owned_by_anyone(self):
-        # given
-        random_character = EveCharacterFactory(character_id=1007)
-        # when
-        with self.assertRaises(Http404):
-            self._view_request_pilot_standing(random_character.character_id)
-
-    def test_should_not_remove_request_if_character_is_owned_by_somebody_else(self):
-        # given
-        user = AuthUtils.create_member("Peter Parker")
-        other_character = EveCharacterFactory(character_id=1006)
-        add_character_to_user(user, other_character, scopes=["publicData"])
-        # when
-        with self.assertRaises(Http404):
-            self._view_request_pilot_standing(other_character.character_id)
-
-    def test_should_return_false_if_character_in_organization(self):
-        # given
-        alt_character = EveCharacterFactory(character_id=1002)
-        add_character_to_user(self.user, alt_character, scopes=["publicData"])
-        # when
-        with self.assertRaises(Http404):
-            self._view_request_pilot_standing(alt_character.character_id)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
+        self.assertTrue(mock_message.error.called)
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
 
     # I believe we do not need this requirement
     # def test_should_create_revocation_if_character_has_satisfied_standing(self):
@@ -515,194 +354,113 @@ class TestRemoveCharacterStanding(NoSocketsTestCase):
     #     # then
     #     self.assertTrue(result)
 
-    def test_should_return_false_if_character_has_no_standing_request(self):
-        # given
-        alt_character = EveCharacterFactory(character_id=1008)
-        add_character_to_user(self.user, alt_character, scopes=["publicData"])
-        # when
-        with self.assertRaises(Http404):
-            self._view_request_pilot_standing(alt_character.character_id)
 
-
-@override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["publicData"]})
+@patch(VIEWS_PATH + ".update_associations_api.delay")
+@patch(VIEWS_PATH + ".messages")
 class TestRequestCorporationStanding(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
-        create_contacts_set()
-        EveCharacterFactory(character_id=1001)
-        cls.user, _ = create_user_from_evecharacter(
-            1001, permissions=["standingsrequests.request_standings"]
-        )
+        EveCharacterFactory(character_id=STANDINGS_API_CHARID)
 
-    def _view_request_corp_standing(self, corporation_id: int) -> bool:
-        request = self.factory.get(
-            reverse("standingsrequests:request_corp_standing", args=[corporation_id])
-        )
-        request.user = self.user
+    def test_should_create_new_pending_request(
+        self, mock_messages, mock_update_associations_api
+    ):
+        # given
+        user = UserMainRequestorFactory()
+        corporation = EveEntityCorporationFactory()
+        request = self.factory.get("/")
+        request.user = user
+
+        # when
         with patch(
-            MODELS_PATH + ".EveCorporationHelper.get_by_id"
-        ) as mock_get_corp_by_id:
-            mock_get_corp_by_id.return_value = EveCorporationHelper(
-                **get_my_test_data()["EveCorporationInfo"]["2102"]
-            )
-            with (
-                patch(VIEWS_PATH + ".messages.warning") as mock_message,
-                patch(VIEWS_PATH + ".update_associations_api"),
-            ):
-                response = create_requests.request_corp_standing(
-                    request, corporation_id
-                )
-                success = not mock_message.called
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-        return success
+            VIEWS_PATH + ".StandingRequest.objects.create_corporation_request"
+        ) as mock_create_corporation_request:
+            mock_create_corporation_request.return_value = True
+            response = create_requests.request_corp_standing(request, corporation.id)
 
-    def test_should_create_new_request_when_valid(self):
+            # then
+            self.assertEqual(response.status_code, HTTPStatus.FOUND)
+            self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
+
+            self.assertFalse(mock_messages.error.called)
+            self.assertTrue(mock_update_associations_api.called)
+            self.assertTrue(mock_create_corporation_request.called)
+
+    def test_should_show_warning_when_request_can_not_be_created(
+        self, mock_messages, mock_update_associations_api
+    ):
         # given
-        character_1009 = create_entity(EveCharacter, 1009)
-        add_character_to_user(self.user, character_1009, scopes=["publicData"])
-        character_1010 = create_entity(EveCharacter, 1010)
-        add_character_to_user(self.user, character_1010, scopes=["publicData"])
+        user = UserMainRequestorFactory()
+        corporation = EveEntityCorporationFactory()
+        request = self.factory.get("/")
+        request.user = user
+
         # when
-        result = self._view_request_corp_standing(2102)
-        # then
-        self.assertTrue(result)
-        obj = StandingRequest.objects.get(contact_id=2102)
-        self.assertFalse(obj.is_actioned)
-        self.assertFalse(obj.is_effective)
+        with patch(
+            VIEWS_PATH + ".StandingRequest.objects.create_corporation_request"
+        ) as mock_create_corporation_request:
+            mock_create_corporation_request.return_value = False
+            response = create_requests.request_corp_standing(request, corporation.id)
 
-    def test_should_return_false_when_not_enough_tokens(self):
-        # given
-        character_1009 = EveCharacterFactory(character_id=1009)
-        add_character_to_user(self.user, character_1009, scopes=["publicData"])
-        # when
-        result = self._view_request_corp_standing(2102)
-        # then
-        self.assertFalse(result)
+            # then
+            self.assertEqual(response.status_code, HTTPStatus.FOUND)
+            self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
 
-    def test_should_return_false_if_pending_request(self):
-        # given
-        StandingRequest.objects.create(
-            contact_id=2102,
-            contact_type_id=ContactTypeId.CORPORATION,
-            user=self.user,
-        )
-        # when
-        result = self._view_request_corp_standing(2102)
-        # then
-        self.assertFalse(result)
-
-    def test_should_return_false_if_pending_revocation(self):
-        # given
-        StandingRevocation.objects.create(
-            contact_id=2102,
-            contact_type_id=ContactTypeId.CORPORATION,
-            user=self.user,
-        )
-        # when
-        result = self._view_request_corp_standing(2102)
-        # then
-        self.assertFalse(result)
+            self.assertTrue(mock_create_corporation_request.called)
+            self.assertTrue(mock_messages.error.called)
+            self.assertFalse(mock_update_associations_api.called)
 
 
-class TestRemoveCorporationStanding(NoSocketsTestCase):
+@patch(VIEWS_PATH + ".messages")
+class TestRemoveCorporationStanding_2(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
-        create_contacts_set()
-        EveCharacterFactory(character_id=1001)
-        cls.user, _ = create_user_from_evecharacter(
-            1001, permissions=["standingsrequests.request_standings"]
-        )
 
-    def view_remove_corp_standing(self, corporation_id: int) -> bool:
-        request = self.factory.get(
-            reverse(
-                "standingsrequests:remove_corp_standing",
-                args=[corporation_id],
-            )
-        )
-        request.user = self.user
-        with patch(VIEWS_PATH + ".messages.warning") as mock_message:
-            response = create_requests.remove_corp_standing(request, corporation_id)
-            success = not mock_message.called
+    def test_should_remove_request(self, mock_messages):
+        # given
+        user = UserMainRequestorFactory()
+        alt = EveEntityCorporationFactory()
+        sr = StandingRequestCorporationFactory(user=user, contact_id=alt.id)
+        request = self.factory.get("/")
+        request.user = user
+
+        # when
+        response = create_requests.remove_corp_standing(request, alt.id)
+
+        # then
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
-        return success
+        self.assertFalse(StandingRequest.objects.filter(pk=sr.pk).exists())
 
-    def test_should_remove_valid_pending_request(self):
+    def test_should_raise_error_when_request_is_not_found(self, mock_messages):
         # given
-        character_1009 = EveCharacterFactory(character_id=1009)
-        add_character_to_user(self.user, character_1009, scopes=["publicData"])
-        StandingRequest.objects.get_or_create_2(
-            user=self.user,
-            contact_id=2102,
-            contact_type=StandingRequest.ContactType.CORPORATION,
-        )
-        # when
-        success = self.view_remove_corp_standing(2102)
-        # then
-        self.assertTrue(success)
-        self.assertFalse(StandingRequest.objects.filter(contact_id=2102).exists())
+        user = UserMainRequestorFactory()
+        alt = EveEntityCorporationFactory()
+        request = self.factory.get("/")
+        request.user = user
 
-    def test_should_remove_valid_effective_request(self):
-        # given
-        character_1004 = EveCharacterFactory(character_id=1004)
-        add_character_to_user(self.user, character_1004, scopes=["publicData"])
-        req = StandingRequest.objects.get_or_create_2(
-            user=self.user,
-            contact_id=2003,
-            contact_type=StandingRequest.ContactType.CORPORATION,
-        )
-        req.mark_actioned(user=None)
-        req.mark_effective()
         # when
-        success = self.view_remove_corp_standing(2003)
-        # then
-        self.assertTrue(success)
-        self.assertTrue(StandingRequest.objects.filter(contact_id=2003).exists())
-        self.assertTrue(StandingRevocation.objects.filter(contact_id=2003).exists())
+        with self.assertRaises(Http404):
+            create_requests.remove_corp_standing(request, alt.id)
 
-    def test_should_return_false_if_standing_requests_from_another_user(self):
+    def test_should_show_message_when_request_could_not_be_removed(self, mock_messages):
         # given
-        user = AuthUtils.create_member("Peter Parker")
-        character_1009 = EveCharacterFactory(character_id=1009)
-        add_character_to_user(self.user, character_1009, scopes=["publicData"])
-        StandingRequest.objects.get_or_create_2(
-            user=user,
-            contact_id=2102,
-            contact_type=StandingRequest.ContactType.CORPORATION,
-        )
-        # when
-        success = self.view_remove_corp_standing(2102)
-        # then
-        self.assertFalse(success)
+        user = UserMainRequestorFactory()
+        alt = EveEntityCorporationFactory()
+        sr = StandingRequestCorporationFactory(user=user, contact_id=alt.id)
+        StandingRevocationCorporationFactory(user=user, contact_id=sr.contact_id)
+        request = self.factory.get("/")
+        request.user = user
 
-    def test_should_return_false_if_no_standing_request_exists(self):
-        # given
-        character_1009 = EveCharacterFactory(character_id=1009)
-        add_character_to_user(self.user, character_1009, scopes=["publicData"])
         # when
-        success = self.view_remove_corp_standing(2102)
-        # then
-        self.assertFalse(success)
+        response = create_requests.remove_corp_standing(request, alt.id)
 
-    def test_should_return_false_if_standing_not_fully_effective(self):
-        # given
-        character = EveCharacterFactory(character_id=1008)
-        add_character_to_user(self.user, character, scopes=["publicData"])
-        req = StandingRequest.objects.get_or_create_2(
-            user=self.user,
-            contact_id=2102,
-            contact_type=StandingRequest.ContactType.CORPORATION,
-        )
-        req.mark_actioned(user=None)
-        req.mark_effective()
-        # when
-        success = self.view_remove_corp_standing(2102)
         # then
-        self.assertFalse(success)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertEqual(response.url, reverse("standingsrequests:create_requests"))
+        self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
+        self.assertTrue(mock_messages.error.called)

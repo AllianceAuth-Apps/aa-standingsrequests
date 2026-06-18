@@ -3,6 +3,7 @@ from app_utils.testing import NoSocketsTestCase
 from standingsrequests.tests.testdata.factories import (
     CharacterAffiliationFactory,
     ContactCharacterFactory,
+    ContactSetFactory,
     EveCorporationHelperFactory,
     FrozenAuthUserFactory,
 )
@@ -40,3 +41,13 @@ class TestEveCorporationFactory(NoSocketsTestCase):
     def test_can_create_with_defaults(self):
         o = EveCorporationHelperFactory()
         self.assertTrue(o)
+
+
+class TestContactSetFactory(NoSocketsTestCase):
+    def test_can_create_empty(self):
+        x = ContactSetFactory()
+        self.assertEqual(x.contacts.count(), 0)
+
+    def test_can_create_with_contacts(self):
+        x = ContactSetFactory(contacts=3)
+        self.assertEqual(x.contacts.count(), 3)
