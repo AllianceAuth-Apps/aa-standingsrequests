@@ -3,6 +3,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import QuerySet
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.cache import cache_page
 from eveuniverse.models import EveEntity
 
@@ -30,12 +31,14 @@ def standings(request):
         contact_set = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
         contact_set = None
+
     organization = app_config.standings_source_entity()
     last_update = contact_set.date if contact_set else None
     context = {
         "lastUpdate": last_update,
         "organization": organization,
         "show_mains": request.user.has_perm("standingsrequests.view"),
+        "page_title": _("Standings"),
     }
     return render(
         request,
@@ -334,7 +337,8 @@ def alliance_standings_data(request):
     try:
         contacts = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
-        contacts = ContactSet()
+        return JsonResponse({"data": []})
+
     alliances_data = []
     for contact in (
         contacts.contacts.filter_alliances()

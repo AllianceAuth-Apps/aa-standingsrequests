@@ -25,11 +25,12 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 @login_required
 @permission_required("standingsrequests.affect_standings")
-def manage_standings(request: HttpResponse):
+def manage_requests(request: HttpResponse):
     context = {
         "organization": app_config.standings_source_entity(),
         "requests_count": StandingRequest.objects.pending_requests().count(),
         "revocations_count": StandingRevocation.objects.pending_requests().count(),
+        "page_title": _("Manage Requests"),
     }
     return render(
         request,

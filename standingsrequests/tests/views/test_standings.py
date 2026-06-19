@@ -403,3 +403,71 @@ class TestAllianceStandingsData(NoSocketsTestCase):
         self.assertEqual(data["alliance_id"], contact.contact_id)
         self.assertEqual(data["alliance_html"]["sort"], contact.name)
         self.assertEqual(data["standing"], contact.standing)
+
+
+class TestEmptyData(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.factory = RequestFactory()
+
+    def test_should_return_empty_character_standing_data_when_no_contact_set(self):
+        # given
+        requestor = UserMainFactory(
+            permissions__=[
+                "standingsrequests.request_standings",
+            ]
+        )
+        request = self.factory.get(
+            reverse("standingsrequests:character_standings_data")
+        )
+        request.user = requestor
+        my_view_without_cache = standings.character_standings_data.__wrapped__
+
+        # when
+        response = my_view_without_cache(request)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        data = json_response_to_dict_2(response, "character_id")
+        self.assertFalse(data)
+
+    def test_should_return_empty_corporation_standing_data_when_no_contact_set(self):
+        # given
+        requestor = UserMainFactory(
+            permissions__=[
+                "standingsrequests.request_standings",
+            ]
+        )
+        request = self.factory.get(
+            reverse("standingsrequests:corporation_standings_data")
+        )
+        request.user = requestor
+        my_view_without_cache = standings.corporation_standings_data.__wrapped__
+
+        # when
+        response = my_view_without_cache(request)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        data = json_response_to_dict_2(response, "corporation_id")
+        self.assertFalse(data)
+
+    def test_should_return_empty_alliance_data_when_no_contact_set(self):
+        # given
+        requestor = UserMainFactory(
+            permissions__=[
+                "standingsrequests.request_standings",
+            ]
+        )
+        request = self.factory.get(reverse("standingsrequests:alliance_standings_data"))
+        request.user = requestor
+        my_view_without_cache = standings.alliance_standings_data.__wrapped__
+
+        # when
+        response = my_view_without_cache(request)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        data = json_response_to_dict_2(response, "alliance_id")
+        self.assertFalse(data)

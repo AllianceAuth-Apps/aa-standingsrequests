@@ -4,5 +4,5 @@
 
 default_app_config = "standingsrequests.apps.StandingsRequestsConfig"
 
-__version__ = "3.0.0dev1"
+__version__ = "3.0.0a1"
 __title__ = "Standings Requests"

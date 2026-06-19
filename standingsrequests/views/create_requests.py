@@ -58,6 +58,7 @@ def create_requests(request):
         "organization": organization,
         "organization_image_url": image_url,
         "authinfo": {"main_char_id": main_char_id},
+        "page_title": _("My Requests"),
     }
     return render(
         request,

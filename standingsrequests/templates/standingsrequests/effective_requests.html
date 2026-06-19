@@ -1,8 +1,8 @@
-{% extends "standingsrequests/_base.html" %}
+{% extends "standingsrequests/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block content %}
+{% block details %}
     <h2>{% translate "Effective Requests" %}</h2>
     {% include "standingsrequests/partials/tbl_effective_requests.html" %}
     <p class="text-muted">
