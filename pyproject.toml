@@ -28,7 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "allianceauth>=4,<5",
-    "django-esi<9",
+    "django-esi>=8,<10",
     "allianceauth-app-utils>=1.32",
     "django-eveuniverse>=2",
 ]

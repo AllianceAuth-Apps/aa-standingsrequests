@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
-from bravado.exception import HTTPError
-
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.db.models import Case, Q, Value, When
 from django.utils.translation import gettext_lazy as _
+from esi.exceptions import HTTPError
 from esi.models import Token
 from eveuniverse.models import EveEntity
 from eveuniverse.tasks import create_eve_entities
@@ -85,28 +84,32 @@ class EsiContactsContainer:
                 raise RuntimeError(
                     "{owner_character}: owner character is not a member of an alliance"
                 )
-            labels = esi.client.Contacts.get_alliances_alliance_id_contacts_labels(
+
+            labels = esi.client.Contacts.GetAlliancesAllianceIdContactsLabels(
                 alliance_id=owner_character.alliance_id,
-                token=token.valid_access_token(),
-            ).results()
-            self.labels = [self.EsiLabel(label) for label in labels]
-            contacts = esi.client.Contacts.get_alliances_alliance_id_contacts(
+                token=token,
+            ).result(use_etag=False)
+            self.labels = [self.EsiLabel(label.model_dump()) for label in labels]
+
+            objs = esi.client.Contacts.GetAlliancesAllianceIdContacts(
                 alliance_id=owner_character.alliance_id,
-                token=token.valid_access_token(),
-            ).results()
+                token=token,
+            ).results(use_etag=False)
+            contacts = [x.model_dump() for x in objs]
 
         elif app_config.operation_mode() is OperationMode.CORPORATION:
-            labels = (
-                esi.client.Contacts.get_corporations_corporation_id_contacts_labels(
-                    corporation_id=owner_character.corporation_id,
-                    token=token.valid_access_token(),
-                ).results()
-            )
-            self.labels = [self.EsiLabel(label) for label in labels]
-            contacts = esi.client.Contacts.get_corporations_corporation_id_contacts(
+            labels = esi.client.Contacts.GetCorporationsCorporationIdContactsLabels(
                 corporation_id=owner_character.corporation_id,
-                token=token.valid_access_token(),
-            ).results()
+                token=token,
+            ).result(use_etag=False)
+            self.labels = [self.EsiLabel(label.model_dump()) for label in labels]
+
+            objs = esi.client.Contacts.GetCorporationsCorporationIdContacts(
+                corporation_id=owner_character.corporation_id,
+                token=token,
+            ).results(use_etag=False)
+            contacts = [x.model_dump() for x in objs]
+
         else:
             raise NotImplementedError()
 
@@ -650,14 +653,14 @@ class CharacterAffiliationManager(models.Manager):
         affiliations = []
         for character_ids_chunk in chunks(character_ids, chunk_size):
             try:
-                response = esi.client.Character.post_characters_affiliation(
-                    characters=character_ids_chunk
-                ).results()
+                objs = esi.client.Character.PostCharactersAffiliation(
+                    body=character_ids_chunk
+                ).result(use_etag=False)
             except HTTPError:
                 logger.exception("Could not fetch character affiliations from ESI")
                 return []
 
-            affiliations += response
+            affiliations += [x.model_dump() for x in objs]
 
         return affiliations
 
@@ -727,26 +730,26 @@ class CorporationDetailsManager(models.Manager):
     def update_or_create_from_esi(self, id: int) -> Tuple[Any, bool]:
         """Updates or create an obj from ESI"""
         logger.info("%s: Fetching corporation from ESI", id)
-        data = esi.client.Corporation.get_corporations_corporation_id(
+        obj = esi.client.Corporation.GetCorporationsCorporationId(
             corporation_id=id
-        ).result()
+        ).result(use_etag=False)
         corporation = EveEntity.objects.get_or_create(id=id)[0]
         alliance = (
-            EveEntity.objects.get_or_create(id=data["alliance_id"])[0]
-            if data.get("alliance_id")
+            EveEntity.objects.get_or_create(id=obj.alliance_id)[0]
+            if obj.alliance_id
             else None
         )
-        ceo_id = data["ceo_id"] if data["ceo_id"] and data["ceo_id"] > 1 else None
+        ceo_id = obj.ceo_id if obj.ceo_id and obj.ceo_id > 1 else None
         ceo = EveEntity.objects.get_or_create(id=ceo_id)[0] if ceo_id else None
         faction = (
-            EveEntity.objects.get_or_create(id=data["faction_id"])[0]
-            if data.get("faction_id")
+            EveEntity.objects.get_or_create(id=obj.faction_id)[0]
+            if obj.faction_id
             else None
         )
         EveEntity.objects.bulk_resolve_ids(
             filter(
                 lambda x: x is not None,
-                [id, data.get("alliance_id"), ceo_id, data.get("faction_id")],
+                [id, obj.alliance_id, ceo_id, obj.faction_id],
             )
         )
         return self.update_or_create(
@@ -755,8 +758,8 @@ class CorporationDetailsManager(models.Manager):
                 "alliance": alliance,
                 "ceo": ceo,
                 "faction": faction,
-                "member_count": data["member_count"],
-                "ticker": data["ticker"],
+                "member_count": obj.member_count,
+                "ticker": obj.ticker,
             },
         )
 

@@ -1,10 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable, List, Optional
 
-from bravado.exception import HTTPError
-
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from esi.exceptions import HTTPError
 from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.evelinks import eveimageserver
@@ -145,9 +144,9 @@ class EveCorporationHelper:
             "Attempting to fetch corporation from ESI with id %s", corporation_id
         )
         try:
-            info = esi.client.Corporation.get_corporations_corporation_id(
+            obj = esi.client.Corporation.GetCorporationsCorporationId(
                 corporation_id=corporation_id
-            ).result()
+            ).result(use_etag=False)
         except HTTPError:
             logger.exception(
                 "Failed to fetch corporation from ESI with id %i", corporation_id
@@ -156,14 +155,14 @@ class EveCorporationHelper:
 
         args = {
             "corporation_id": corporation_id,
-            "corporation_name": info["name"],
-            "ticker": info["ticker"],
-            "member_count": info["member_count"],
-            "ceo_id": info["ceo_id"],
+            "corporation_name": obj.name,
+            "ticker": obj.ticker,
+            "member_count": obj.member_count,
+            "ceo_id": obj.ceo_id,
         }
-        if "alliance_id" in info and info["alliance_id"]:
-            args["alliance_id"] = info["alliance_id"]
-            args["alliance_name"] = EveEntity.objects.resolve_name(info["alliance_id"])
+        if obj.alliance_id:
+            args["alliance_id"] = obj.alliance_id
+            args["alliance_name"] = EveEntity.objects.resolve_name(obj.alliance_id)
 
         return cls(**args)
 
@@ -181,7 +180,7 @@ class EveCorporationHelper:
             return []
 
         # make sure client is loaded before starting threads
-        esi.client.Status.get_status().result()
+        esi.client.Status.GetStatus().result(use_etag=False)
         logger.info(
             "Starting to fetch the %d corporations from ESI with up to %d workers",
             len(corporation_ids_unique),
