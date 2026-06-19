@@ -1,5 +1,3 @@
-# spellchecker: disable
-
 stages:
     - checks
     - test
@@ -13,13 +11,11 @@ pre-commit:
     cache:
         paths:
             - ${PRE_COMMIT_HOME}
-    before_script:
-        - pip install pre-commit
     script:
+        - pip install pre-commit
         - pre-commit run --all-files
 
 .tox_setup:
-    stage: test
     before_script:
         - apt-get update
         - apt-get install redis-server -y
@@ -31,9 +27,9 @@ pylint:
     stage: checks
     extends: .tox_setup
     image: python:3.12-bookworm
+    allow_failure: true
     script:
         - tox -e pylint
-    allow_failure: true
 
 test:
   extends: .tox_setup
@@ -41,7 +37,7 @@ test:
   parallel:
     matrix:
     - PYTHON_VERSION: [10, 11, 12]
-      DJANGO_VERSION: [42]
+      DJANGO_VERSION: [42, 52]
   script:
     - tox -e py3$PYTHON_VERSION-django$DJANGO_VERSION
     - bash <(curl -s https://codecov.io/bash)
@@ -49,10 +45,13 @@ test:
 deploy-pypi:
     stage: deploy
     image: python:3.12-bookworm
+
     before_script:
-        - pip install -U pip twine wheel build
+        - pip install build twine
+
     script:
         - python -m build
         - twine upload dist/*
+
     only:
         - tags

@@ -9,10 +9,40 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [3.0.0] - TBD
 
+### Update notes
+
+Please update your configuration for the periodic tasks in your local settings file to avoid load peaks on FC's servers.
+
+The new configuration is:
+
+```python
+CELERYBEAT_SCHEDULE["standings_requests_standings_update"] = {
+    "task": "standings_requests.standings_update",
+    "schedule": 1800,  # 0.5 hours
+}
+CELERYBEAT_SCHEDULE["standings_requests_update_associations_api"] = {
+    "task": "standings_requests.update_associations_api",
+    "schedule": 12600,  # 3.5 hours
+}
+CELERYBEAT_SCHEDULE["standings_requests_validate_requests"] = {
+    "task": "standings_requests.validate_requests",
+    "schedule": 21600,  # 6 hours
+}
+CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
+    "task": "standings_requests.purge_stale_data",
+    "schedule": 86400,  # 24 hours
+}
+```
+
 ### Changed
 
-- Dropped support for Python 3.8 & 3.9
-- Not uses local spec file for django-esi
+- BREAKING CHANGE: Removed support for Python 3.8
+- BREAKING CHANGE: Removed support for Python 3.9
+- Added support for AA5
+- Now uses local spec file for django-esi
+- Migrated to new eveuniverse version that uses the OpenAPI client
+- Removed logger tag
+- Modernized test suite
 
 ## [2.0.0] - 2026-03-24
 

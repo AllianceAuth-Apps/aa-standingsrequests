@@ -118,21 +118,21 @@ SR_REQUIRED_SCOPES = {
 }
 
 # CELERY tasks
-CELERYBEAT_SCHEDULE['standings_requests_standings_update'] = {
-    'task': 'standings_requests.standings_update',
-    'schedule': crontab(minute='*/30'),
+CELERYBEAT_SCHEDULE["standings_requests_standings_update"] = {
+    "task": "standings_requests.standings_update",
+    "schedule": 1800,  # 0.5 hours
 }
-CELERYBEAT_SCHEDULE['standings_requests_update_associations_api'] = {
-    'task': 'standings_requests.update_associations_api',
-    'schedule': crontab(minute='30', hour='*/3'),
+CELERYBEAT_SCHEDULE["standings_requests_update_associations_api"] = {
+    "task": "standings_requests.update_associations_api",
+    "schedule": 12600,  # 3.5 hours
 }
-CELERYBEAT_SCHEDULE['standings_requests_validate_requests'] = {
-    'task': 'standings_requests.validate_requests',
-    'schedule': crontab(minute='0', hour='*/6'),
+CELERYBEAT_SCHEDULE["standings_requests_validate_requests"] = {
+    "task": "standings_requests.validate_requests",
+    "schedule": 21600,  # 6 hours
 }
-CELERYBEAT_SCHEDULE['standings_requests_purge_stale_data'] = {
-    'task': 'standings_requests.purge_stale_data',
-    'schedule': crontab(minute='0', hour='*/24'),
+CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
+    "task": "standings_requests.purge_stale_data",
+    "schedule": 86400,  # 24 hours
 }
 ```
 
