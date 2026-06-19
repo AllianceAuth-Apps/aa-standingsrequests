@@ -205,12 +205,48 @@ class CorporationDetailsFactory(
     class Meta:
         model = CorporationDetails
 
-    alliance = factory.SubFactory(EveEntityAllianceFactory)
-    ceo = factory.SubFactory(EveEntityCharacterFactory)
-    corporation = factory.SubFactory(EveEntityCorporationFactory)
+    class Params:
+        eve_corporation = None
+
     faction = None
-    member_count = factory.fuzzy.FuzzyInteger(10, 1000)
-    ticker = factory.LazyAttribute(lambda o: o.corporation.name[:4].upper())
+
+    @factory.lazy_attribute
+    def corporation(self):
+        if not self.eve_corporation:
+            return EveEntityCorporationFactory()
+        return EveEntityCorporationFactory(
+            id=self.eve_corporation.corporation_id,
+            name=self.eve_corporation.corporation_name,
+        )
+
+    @factory.lazy_attribute
+    def alliance(self):
+        if not self.eve_corporation:
+            return EveEntityAllianceFactory()
+        if not self.eve_corporation.alliance:
+            return None
+        return EveEntityAllianceFactory(
+            id=self.eve_corporation.alliance.id,
+            name=self.eve_corporation.alliance.alliance_name,
+        )
+
+    @factory.lazy_attribute
+    def ceo(self):
+        if not self.eve_corporation or not self.eve_corporation.ceo_id:
+            return EveEntityCharacterFactory()
+        return EveEntityCharacterFactory(id=self.eve_corporation.ceo_id)
+
+    @factory.lazy_attribute
+    def member_count(self):
+        if not self.eve_corporation:
+            return factory.fuzzy.FuzzyInteger(10, 1000).fuzz()
+        return self.eve_corporation.member_count
+
+    @factory.lazy_attribute
+    def ticker(self):
+        if not self.eve_corporation:
+            return self.corporation.name[:4].upper()
+        return self.eve_corporation.corporation_ticker
 
 
 class ContactSetFactory(
@@ -248,6 +284,17 @@ class _ContactFactory(
     contact_set = factory.SubFactory(ContactSetFactory)
     standing = factory.fuzzy.FuzzyChoice([-10.0, -5.0, 5.0, 10.0])
     is_watched = False
+
+
+class ContactAllianceFactory(_ContactFactory):
+    class Params:
+        contact_id = None
+
+    @factory.lazy_attribute
+    def eve_entity(self):
+        if self.contact_id:
+            return EveEntityAllianceFactory(id=self.contact_id)
+        return EveEntityAllianceFactory()
 
 
 class ContactCharacterFactory(_ContactFactory):

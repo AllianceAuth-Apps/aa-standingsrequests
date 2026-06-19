@@ -39,7 +39,7 @@ from standingsrequests.tests.testdata.factories import (
     UserMainRequestorFactory,
     make_esi_url,
 )
-from standingsrequests.tests.utils_2 import TestCaseWithClearCache, extract
+from standingsrequests.tests.utils import TestCaseWithClearCache, extract
 
 CORE_PATH = "standingsrequests.core"
 MANAGERS_PATH = "standingsrequests.managers"

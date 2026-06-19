@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import QuerySet
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import cache_page
@@ -15,7 +16,7 @@ from standingsrequests.app_settings import SR_PAGE_CACHE_SECONDS
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
 from standingsrequests.helpers.writers import UnicodeWriter
-from standingsrequests.models import ContactSet, StandingRequest
+from standingsrequests.models import Contact, ContactSet, StandingRequest
 
 from ._common import DEFAULT_ICON_SIZE, add_common_context, label_with_icon
 
@@ -50,8 +51,9 @@ def character_standings_data(request):
     try:
         contacts = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
-        contacts = ContactSet()
-    character_contacts_qs = (
+        return JsonResponse({"data": []})
+
+    character_contacts_qs: QuerySet[Contact] = (
         contacts.contacts.filter_characters()
         .select_related(
             "eve_entity",
@@ -224,8 +226,9 @@ def corporation_standings_data(request):
     try:
         contacts = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
-        contacts = ContactSet()
-    corporations_qs = (
+        return JsonResponse({"data": []})
+
+    corporations_qs: QuerySet[Contact] = (
         contacts.contacts.filter_corporations()
         .select_related(
             "eve_entity",
@@ -236,19 +239,15 @@ def corporation_standings_data(request):
         .prefetch_related("labels")
         .order_by("eve_entity__name")
     )
+
+    relevant_standing_requests = StandingRequest.objects.filter(
+        contact_type_id=ContactTypeId.CORPORATION
+    ).filter(
+        contact_id__in=list(corporations_qs.values_list("eve_entity_id", flat=True))
+    )
+    standings_requests = {obj.contact_id: obj for obj in relevant_standing_requests}
+
     corporations_data = []
-    standings_requests = {
-        obj.contact_id: obj
-        for obj in (
-            StandingRequest.objects.filter(
-                contact_type_id=ContactTypeId.CORPORATION
-            ).filter(
-                contact_id__in=list(
-                    corporations_qs.values_list("eve_entity_id", flat=True)
-                )
-            )
-        )
-    }
     for contact in corporations_qs:
         alliance_name, faction_name = _identify_corporation_organizations(contact)
         if request.user.has_perm("standingsrequests.view"):
@@ -259,27 +258,28 @@ def corporation_standings_data(request):
             ) = _identify_corporation_main(standings_requests, contact)
         else:
             main_character_name = main_character_html = state_name = ""
+
         labels_str = ", ".join(contact.labels_sorted)
         corporation_html = label_with_icon(
             contact.eve_entity.icon_url(DEFAULT_ICON_SIZE), contact.eve_entity.name
         )
         corporations_data.append(
             {
-                "corporation_id": contact.eve_entity_id,
+                "alliance_name": alliance_name,
                 "corporation_html": {
                     "display": corporation_html,
                     "sort": contact.eve_entity.name,
                 },
-                "alliance_name": alliance_name,
+                "corporation_id": contact.eve_entity_id,
                 "faction_name": faction_name,
-                "standing": contact.standing,
                 "labels_str": labels_str,
-                "state": state_name,
                 "main_character_name": main_character_name,
                 "main_character_html": {
                     "display": main_character_html,
                     "sort": main_character_name,
                 },
+                "standing": contact.standing,
+                "state": state_name,
             }
         )
     return JsonResponse({"data": corporations_data})

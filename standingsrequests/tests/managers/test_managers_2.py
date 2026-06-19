@@ -38,7 +38,7 @@ from standingsrequests.tests.testdata.factories import (
     UserMainApproverFactory,
     make_esi_url,
 )
-from standingsrequests.tests.utils_2 import TestCaseWithClearCache
+from standingsrequests.tests.utils import TestCaseWithClearCache
 
 MANAGERS_PATH = "standingsrequests.managers"
 
@@ -609,7 +609,9 @@ class TestFrozenAltManager_GetOrCreateFromStandingRequest(NoSocketsTestCase):
     def test_should_create_new_corporation_with_affiliations(self):
         # given
         sr = StandingRequestCorporationFactory()
-        cd = CorporationDetailsFactory(corporation__id=sr.contact_id)
+        cd = CorporationDetailsFactory(
+            corporation=EveEntityCorporationFactory(id=sr.contact_id)
+        )
 
         # when
         obj: FrozenAlt

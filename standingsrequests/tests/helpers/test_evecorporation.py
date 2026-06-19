@@ -17,7 +17,7 @@ from standingsrequests.tests.testdata.factories import (
     UserMainRequestorFactory,
     make_esi_url,
 )
-from standingsrequests.tests.utils_2 import TestCaseWithClearCache
+from standingsrequests.tests.utils import TestCaseWithClearCache
 
 EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
 MODELS_PATH = "standingsrequests.models"

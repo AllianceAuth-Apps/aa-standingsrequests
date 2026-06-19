@@ -1,22 +1,25 @@
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils.timezone import now
 
-from app_utils.testing import json_response_to_python
+from app_utils.testing import NoSocketsTestCase, json_response_to_python
 
 from standingsrequests.tests.testdata.factories import UserMainApproverFactory
-from standingsrequests.tests.utils_2 import TestCaseWithClearCache
 
 MODULE_PATH = "standingsrequests.views.effective_requests"
 
 
-class TestEffectiveRequestsData2(TestCaseWithClearCache):
+class TestEffectiveRequestsData2(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
+
+    def setUp(self):
+        cache.clear()
 
     @patch(MODULE_PATH + ".compose_standing_requests_data")
     def test_effective_requests_data(self, mock_compose_standing_requests_data):

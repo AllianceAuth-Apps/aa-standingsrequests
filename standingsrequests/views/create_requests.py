@@ -459,7 +459,7 @@ def view_auth_page(request: HttpRequest, token: Token):
 
 @login_required
 @permission_required(StandingRequest.REQUEST_PERMISSION_NAME)
-@token_required_by_state(new=False)
+@token_required_by_state(new=False)  # TODO: Move decorator logic into view
 def view_requester_add_scopes(request: HttpRequest, token):
     messages.success(
         request,

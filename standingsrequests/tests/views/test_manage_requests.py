@@ -18,7 +18,7 @@ from standingsrequests.tests.testdata.factories import (
     StandingRevocationCharacterFactory,
     UserMainApproverFactory,
 )
-from standingsrequests.tests.utils_2 import TestCaseWithClearCache
+from standingsrequests.tests.utils import TestCaseWithClearCache
 from standingsrequests.views import manage_requests
 
 MODULE_PATH = "standingsrequests.views.manage_requests"

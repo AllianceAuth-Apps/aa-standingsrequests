@@ -1,10 +1,9 @@
 from django.test import TestCase
 
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.tests.testdata.entity_type_ids import (
-    CHARACTER_TYPE_ID,
-    CORPORATION_TYPE_ID,
-)
+
+CHARACTER_TYPE_ID = ContactTypeId.CHARACTER_AMARR
+CORPORATION_TYPE_ID = 2
 
 
 class TestContactType(TestCase):
