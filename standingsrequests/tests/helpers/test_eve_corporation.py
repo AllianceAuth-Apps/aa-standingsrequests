@@ -8,18 +8,18 @@ from eveuniverse.tests.testdata.factories_2 import EveEntityAllianceFactory
 from app_utils.testdata_factories import EveCharacterFactory, EveCorporationInfoFactory
 from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.helpers.evecorporation import (
+from standingsrequests.helpers.eve_corporation import (
     EveCorporationHelper,
     user_can_request_corporation_standing,
 )
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     EveCorporationHelperFactory,
     UserMainRequestorFactory,
     make_esi_url,
 )
 from standingsrequests.tests.utils import TestCaseWithClearCache
 
-EVECORPORATION_PATH = "standingsrequests.helpers.evecorporation"
+EVECORPORATION_PATH = "standingsrequests.helpers.eve_corporation"
 MODELS_PATH = "standingsrequests.models"
 
 

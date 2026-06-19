@@ -7,7 +7,7 @@ from django.utils.timezone import now
 
 from app_utils.testing import NoSocketsTestCase, json_response_to_python
 
-from standingsrequests.tests.testdata.factories import UserMainApproverFactory
+from standingsrequests.tests.factories import UserMainApproverFactory
 
 MODULE_PATH = "standingsrequests.views.effective_requests"
 

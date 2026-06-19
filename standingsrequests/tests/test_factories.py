@@ -1,7 +1,7 @@
 from app_utils.testdata_factories import EveCorporationInfoFactory
 from app_utils.testing import NoSocketsTestCase
 
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     CharacterAffiliationFactory,
     ContactCharacterFactory,
     ContactSetFactory,

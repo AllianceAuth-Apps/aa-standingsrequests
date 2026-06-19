@@ -8,7 +8,7 @@ from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.testing import generate_invalid_pk
 
 from standingsrequests.decorators import token_required_by_state
-from standingsrequests.tests.testdata.factories import UserMainRequestorFactory
+from standingsrequests.tests.factories import UserMainRequestorFactory
 
 MODULE_PATH = "standingsrequests.decorators"
 PATH_MODELS = "standingsrequests.models"

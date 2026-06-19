@@ -1,9 +1,7 @@
 from app_utils.testing import NoSocketsTestCase
 
-from standingsrequests.helpers.evecharacter import EveCharacterHelper
-from standingsrequests.tests.testdata.factories import CharacterAffiliationFactory
-
-MODULE_PATH = "standingsrequests.helpers.evecorporation"
+from standingsrequests.helpers.eve_character import EveCharacterHelper
+from standingsrequests.tests.factories import CharacterAffiliationFactory
 
 
 class TestEveCharacterHelper(NoSocketsTestCase):

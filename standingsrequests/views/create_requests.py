@@ -20,7 +20,7 @@ from standingsrequests.app_settings import SR_CORPORATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult
 from standingsrequests.core import app_config
 from standingsrequests.decorators import token_required_by_state
-from standingsrequests.helpers.evecorporation import EveCorporationHelper
+from standingsrequests.helpers.eve_corporation import EveCorporationHelper
 from standingsrequests.models import ContactSet, StandingRequest, StandingRevocation
 from standingsrequests.tasks import update_all, update_associations_api
 

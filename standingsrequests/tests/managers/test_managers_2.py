@@ -24,7 +24,7 @@ from standingsrequests.models import (
     FrozenAuthUser,
     RequestLogEntry,
 )
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     CharacterAffiliationFactory,
     ContactCharacterFactory,
     ContactCorporationFactory,

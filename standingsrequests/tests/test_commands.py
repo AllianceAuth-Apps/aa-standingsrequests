@@ -9,7 +9,7 @@ from app_utils.testdata_factories import EveCharacterFactory
 from app_utils.testing import add_character_to_user
 
 from standingsrequests.models import StandingRequest
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     ContactCharacterFactory,
     ContactSetFactory,
     UserMainRequestorFactory,

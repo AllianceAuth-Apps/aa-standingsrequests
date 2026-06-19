@@ -13,7 +13,7 @@ from eveuniverse.tests.testdata.factories_2 import (
 from app_utils.testing import NoSocketsTestCase
 
 from standingsrequests.models import StandingRequest, StandingRevocation
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     StandingRequestCharacterFactory,
     StandingRevocationCharacterFactory,
     UserMainApproverFactory,

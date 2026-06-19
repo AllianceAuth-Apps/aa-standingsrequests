@@ -26,7 +26,7 @@ from standingsrequests.app_settings import SR_NOTIFICATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult, OperationMode
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import (
+from standingsrequests.helpers.eve_corporation import (
     user_can_request_corporation_standing,
 )
 from standingsrequests.providers import esi

@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from standingsrequests.tests.testdata.factories import FrozenAuthUserFactory
+from standingsrequests.tests.factories import FrozenAuthUserFactory
 
 
 class TestGatherEntityIds(TestCase):

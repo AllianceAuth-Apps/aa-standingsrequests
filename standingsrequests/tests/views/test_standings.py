@@ -13,7 +13,7 @@ from app_utils.testdata_factories import (
 )
 from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     CharacterAffiliationFactory,
     ContactAllianceFactory,
     ContactCharacterFactory,

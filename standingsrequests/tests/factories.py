@@ -18,7 +18,7 @@ from allianceauth.authentication.models import State
 from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
 
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.evecorporation import EveCorporationHelper
+from standingsrequests.helpers.eve_corporation import EveCorporationHelper
 from standingsrequests.models import (
     AbstractStandingsRequest,
     CharacterAffiliation,

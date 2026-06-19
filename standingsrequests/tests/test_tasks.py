@@ -8,7 +8,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from standingsrequests import tasks
 from standingsrequests.models import ContactSet
-from standingsrequests.tests.testdata.factories import (
+from standingsrequests.tests.factories import (
     ContactCorporationFactory,
     ContactSetFactory,
 )
