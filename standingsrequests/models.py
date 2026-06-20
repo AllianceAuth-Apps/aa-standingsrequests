@@ -81,23 +81,26 @@ class ContactSet(models.Model):
         return count of generated standings requests
         """
         logger.info("Started generating standings request for blue alts.")
+        created_counter = 0
         owned_characters_qs = EveCharacter.objects.filter(
             character_ownership__isnull=False
         )
-        created_counter = 0
         for alt in owned_characters_qs:
             user = alt.character_ownership.user
+            standing_request_exists = StandingRequest.objects.filter(
+                user=user, contact_id=alt.character_id
+            ).exists()
+            standing_revocation_exists = StandingRevocation.objects.filter(
+                contact_id=alt.character_id
+            ).exists()
+
             if (
                 not app_config.is_character_a_member(alt)
-                and not StandingRequest.objects.filter(
-                    user=user, contact_id=alt.character_id
-                ).exists()
-                and not StandingRevocation.objects.filter(
-                    contact_id=alt.character_id
-                ).exists()
+                and not standing_request_exists
+                and not standing_revocation_exists
                 and self.contact_has_satisfied_standing(alt.character_id)
             ):
-                sr = StandingRequest.objects.get_or_create_2(
+                sr: StandingRequest = StandingRequest.objects.get_or_create_2(
                     user=user,
                     contact_id=alt.character_id,
                     contact_type=StandingRequest.ContactType.CHARACTER,

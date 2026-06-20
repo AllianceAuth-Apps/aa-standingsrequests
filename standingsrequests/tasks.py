@@ -6,6 +6,7 @@ from celery import Task, chain, shared_task
 from django.contrib.auth.models import User
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
+from esi.decorators import rate_limit_retry_task
 
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
@@ -63,6 +64,7 @@ def report_result_to_user(user_pk: int):
 
 
 @shared_task(name="standings_requests.standings_update", bind=True)
+@rate_limit_retry_task
 def standings_update(self):
     """Updates standings from ESI"""
     logger.info("Standings API update started")
@@ -125,8 +127,9 @@ def update_associations_api(self):
     update_all_corporation_details.apply_async(priority=priority)
 
 
-@shared_task
-def update_character_affiliations_from_esi():
+@shared_task(bind=True)
+@rate_limit_retry_task
+def update_character_affiliations_from_esi(_self):
     CharacterAffiliation.objects.update_from_esi()
     logger.info("Finished character affiliations from ESI.")
 
@@ -160,8 +163,9 @@ def update_all_corporation_details(self):
     )
 
 
-@shared_task
-def update_corporation_detail(corporation_id: int):
+@shared_task(bind=True)
+@rate_limit_retry_task
+def update_corporation_detail(_self, corporation_id: int):
     CorporationDetails.objects.update_or_create_from_esi(corporation_id)
 
 
