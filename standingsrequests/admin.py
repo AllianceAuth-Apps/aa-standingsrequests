@@ -1,11 +1,13 @@
 from typing import Optional
 
 from django.contrib import admin
-from django.db.models import Count
+from django.utils.translation import gettext_lazy as _
 from eveuniverse.models import EveEntity
 
 from standingsrequests.models import (
     AbstractStandingsRequest,
+    Contact,
+    ContactLabel,
     ContactSet,
     RequestLogEntry,
     StandingRequest,
@@ -66,28 +68,6 @@ class StandingsRevocationAdmin(AbstractStandingsRequestAdmin):
     pass
 
 
-@admin.register(ContactSet)
-class ContactSetAdmin(admin.ModelAdmin):
-    change_list_template = "admin/standingsrequests/contactset/change_list.html"
-    list_display = ("date", "_contacts_count")
-    list_display_links = None
-    ordering = ("-date",)
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.annotate(contacts_count=Count("contacts"))
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request):
-        return False
-
-    @admin.display
-    def _contacts_count(self, obj):
-        return obj.contacts_count
-
-
 @admin.register(RequestLogEntry)
 class RequestLogEntryAdmin(admin.ModelAdmin):
     list_display = (
@@ -146,3 +126,93 @@ class RequestLogEntryAdmin(admin.ModelAdmin):
     def _reason(self, obj: RequestLogEntry) -> Optional[str]:
         reason_obj = StandingRequest.Reason(obj.reason)
         return None if reason_obj is StandingRequest.Reason.NONE else reason_obj.label
+
+
+class ContactCategoryFilter(admin.SimpleListFilter):
+    title = _("category")
+    parameter_name = "category"
+
+    def lookups(self, request, model_admin):
+        categories = sorted(
+            set(
+                model_admin.get_queryset(request).values_list(
+                    "eve_entity__category", flat=True
+                )
+            )
+        )
+        result = [(o, o) for o in categories]
+        return result
+
+    def queryset(self, request, queryset):
+        v = self.value()
+        if not v:
+            return queryset.all()
+
+        return queryset.filter(eve_entity__category=v)
+
+
+class ContactLabelFilter(admin.SimpleListFilter):
+    title = _("label")
+    parameter_name = "label"
+
+    def lookups(self, request, model_admin):
+        cs = ContactSet.objects.latest()
+        if not cs:
+            return []
+
+        labels = ContactLabel.objects.filter(contact_set=cs).order_by("name")
+        result = [(o.label_id, o.name) for o in labels]
+        return result
+
+    def queryset(self, request, queryset):
+        v = self.value()
+        if not v:
+            return queryset.all()
+
+        return queryset.filter(labels__label_id=v)
+
+
+@admin.register(Contact)
+class ContactAdmin(admin.ModelAdmin):
+    list_display = (
+        "_name",
+        "_category",
+        "standing",
+        "_labels",
+    )
+    list_filter = [ContactCategoryFilter, "standing", ContactLabelFilter]
+    ordering = ("eve_entity__name",)
+    exclude = ["contact_set"]
+
+    @admin.display(ordering="eve_entity__name")
+    def _name(self, obj):
+        return obj.eve_entity.name
+
+    @admin.display(ordering="eve_entity__category")
+    def _category(self, obj):
+        return obj.eve_entity.category
+
+    def _labels(self, obj):
+        qs = obj.labels.all()
+        return ", ".join([obj.name for obj in qs])
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        cs = ContactSet.objects.latest()
+        if not cs:
+            return Contact.objects.none()
+
+        return (
+            qs.filter(contact_set=cs)
+            .select_related("eve_entity")
+            .prefetch_related("labels")
+        )
+
+    def has_change_permission(self, *args, **kwargs):
+        return False
+
+    def has_add_permission(self, *args, **kwargs):
+        return False
+
+    def has_delete_permission(self, *args, **kwargs) -> bool:
+        return False

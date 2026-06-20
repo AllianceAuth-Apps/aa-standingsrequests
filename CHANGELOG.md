@@ -34,6 +34,10 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
 }
 ```
 
+### Added
+
+- Show current contacts on admin site
+
 ### Changed
 
 - BREAKING CHANGE: Removed support for Python 3.8
@@ -42,6 +46,7 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
 - Now uses local spec file for django-esi
 - Migrated to new eveuniverse version that uses the OpenAPI client
 - Removed logger tag
+- No longer shows contact sets on admin site
 - Modernized test suite
 
 ## [2.0.0] - 2026-03-24
