@@ -34,11 +34,23 @@ def standings(request):
 
     organization = app_config.standings_source_entity()
     last_update = contact_set.date if contact_set else None
+    character_count = contact_set.contacts.filter(
+        eve_entity__category=EveEntity.CATEGORY_CHARACTER
+    ).count()
+    corporation_count = contact_set.contacts.filter(
+        eve_entity__category=EveEntity.CATEGORY_CORPORATION
+    ).count()
+    alliance_count = contact_set.contacts.filter(
+        eve_entity__category=EveEntity.CATEGORY_ALLIANCE
+    ).count()
     context = {
         "lastUpdate": last_update,
         "organization": organization,
         "show_mains": request.user.has_perm("standingsrequests.view"),
         "page_title": _("Standings"),
+        "character_count": character_count,
+        "corporation_count": corporation_count,
+        "alliance_count": alliance_count,
     }
     return render(
         request,
