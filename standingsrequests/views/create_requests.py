@@ -404,7 +404,7 @@ def remove_corp_standing(request: HttpRequest, corporation_id: int):
 
 @login_required
 @permission_required("standingsrequests.affect_standings")
-@token_required(new=False, scopes=ContactSet.required_esi_scope())
+@token_required(new=False, scopes=app_config.required_esi_scope())
 def view_auth_page(request: HttpRequest, token: Token):
     source_entity = app_config.standings_source_entity()
     owner_character = app_config.owner_character()

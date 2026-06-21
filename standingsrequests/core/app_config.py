@@ -73,3 +73,14 @@ def required_scopes_for_state(state_name: str) -> list:
     """Return list of required scopes for a state given by state_name."""
     state_name = "" if not state_name else state_name
     return SR_REQUIRED_SCOPES[state_name] if state_name in SR_REQUIRED_SCOPES else []
+
+
+def required_esi_scope() -> str:
+    """Return the required ESI scopes for syncing"""
+    if operation_mode() is OperationMode.ALLIANCE:
+        return "esi-alliances.read_contacts.v1"
+
+    if operation_mode() is OperationMode.CORPORATION:
+        return "esi-corporations.read_contacts.v1"
+
+    raise NotImplementedError()

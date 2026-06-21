@@ -132,7 +132,7 @@ class ContactSetManager(models.Manager):
         owner_character = app_config.owner_character()
         token: Token = (
             Token.objects.filter(character_id=owner_character.character_id)
-            .require_scopes(self.model.required_esi_scope())
+            .require_scopes(app_config.required_esi_scope())
             .require_valid()
             .first()
         )

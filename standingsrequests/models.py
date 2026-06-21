@@ -19,7 +19,6 @@ from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
 from standingsrequests.app_settings import SR_STANDING_TIMEOUT_HOURS
-from standingsrequests.constants import OperationMode
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
 from standingsrequests.helpers.models import (
@@ -123,17 +122,6 @@ class ContactSet(models.Model):
             created_counter,
         )
         return created_counter
-
-    @staticmethod
-    def required_esi_scope() -> str:
-        """returns the required ESI scopes for syncing"""
-        if app_config.operation_mode() is OperationMode.ALLIANCE:
-            return "esi-alliances.read_contacts.v1"
-
-        if app_config.operation_mode() is OperationMode.CORPORATION:
-            return "esi-corporations.read_contacts.v1"
-
-        raise NotImplementedError()
 
 
 class ContactLabel(models.Model):
