@@ -1,5 +1,5 @@
 from django.contrib.auth.decorators import login_required, permission_required
-from django.http import HttpResponse, HttpResponseNotFound
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404, render
 from django.utils.translation import gettext_lazy as _
 from eveuniverse.models import EveEntity
@@ -25,11 +25,12 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 @login_required
 @permission_required("standingsrequests.affect_standings")
-def manage_standings(request):
+def manage_requests(request: HttpResponse):
     context = {
         "organization": app_config.standings_source_entity(),
         "requests_count": StandingRequest.objects.pending_requests().count(),
         "revocations_count": StandingRevocation.objects.pending_requests().count(),
+        "page_title": _("Manage Requests"),
     }
     return render(
         request,
@@ -63,9 +64,12 @@ def manage_revocations_list(request):
     )
 
 
+# TODO: Combine views manage_requests_write and manage_revocations_write
+
+
 @login_required
 @permission_required("standingsrequests.affect_standings")
-def manage_requests_write(request, contact_id):
+def manage_requests_write(request: HttpRequest, contact_id):
     contact_id = int(contact_id)
     logger.debug("manage_requests_write called by %s", request.user)
     if request.method == "PUT":
@@ -104,7 +108,7 @@ def manage_requests_write(request, contact_id):
 
 @login_required
 @permission_required("standingsrequests.affect_standings")
-def manage_revocations_write(request, contact_id):
+def manage_revocations_write(request: HttpRequest, contact_id):
     contact_id = int(contact_id)
     logger.debug(
         "manage_revocations_write called by %s for contact_id %s",
@@ -132,6 +136,9 @@ def manage_revocations_write(request, contact_id):
             contact_id=contact_id
         )
         standing_revocation = standing_revocations_qs.first()
+        if not standing_revocation:
+            raise Http404
+
         RequestLogEntry.objects.create_from_standing_request(
             standing_revocation, RequestLogEntry.Action.REJECTED, request.user
         )

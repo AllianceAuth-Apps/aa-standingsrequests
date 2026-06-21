@@ -1,16 +1,8 @@
-{% extends "standingsrequests/_base.html" %}
+{% extends "standingsrequests/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block content %}
-    <h2>{% translate "My Requests" %}</h2>
-    <p class="text-muted">
-        {% blocktranslate with organization_name=organization.name %}
-            On this page you can create requests to get standing or revoke standing with {{ organization_name }} for your alts.
-            If you are missing an alt, please add it first on the dashboard.
-        {% endblocktranslate %}
-    </p>
-
+{% block details %}
     <ul class="nav nav-tabs" role="tablist">
 
         <li class="nav-item" role="presentation">
@@ -47,9 +39,17 @@
     </div>
 
     <br>
+
+    <p class="text-muted">
+        {% blocktranslate with organization_name=organization.name %}
+            On this page you can create requests to get standing or revoke standing with {{ organization_name }} for your alts.
+            If you are missing an alt, please add it first on the dashboard.
+        {% endblocktranslate %}
+    </p>
+
     <div class="card card-default">
-        <h5 class="card-title">{% translate "Icon Legend" %}</h5>
         <div class="card-body">
+            <h5 class="card-title">{% translate "Icon Legend" %}</h5>
             <table class="table">
                 <tr>
                     <td>

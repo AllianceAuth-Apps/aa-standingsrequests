@@ -1,10 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable, List, Optional
 
-from bravado.exception import HTTPError
-
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from esi.exceptions import HTTPError
 from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.evelinks import eveimageserver
@@ -14,6 +13,7 @@ from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
 from standingsrequests.constants import DEFAULT_IMAGE_SIZE
+from standingsrequests.core import scopes
 from standingsrequests.providers import esi
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -21,7 +21,7 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 MAX_WORKERS = 10
 
 
-class EveCorporation:
+class EveCorporationHelper:
     CACHE_PREFIX = "STANDINGS_REQUESTS_EVECORPORATION_"
     CACHE_TIME = 60 * 60  # 60 minutes
 
@@ -37,7 +37,7 @@ class EveCorporation:
     def __str__(self):
         return self.corporation_name
 
-    def __eq__(self, o: "EveCorporation") -> bool:
+    def __eq__(self, o: "EveCorporationHelper") -> bool:
         return (
             isinstance(o, type(self))
             and self.corporation_id == o.corporation_id
@@ -72,8 +72,6 @@ class EveCorporation:
         - user: user owning the characters
         - quick: if True will not check if tokens are valid to save time
         """
-        from standingsrequests.models import StandingRequest
-
         corporation_members = (
             EveCharacter.objects.filter(character_ownership__user=user)
             .select_related("character_ownership__user__profile__state")
@@ -83,8 +81,8 @@ class EveCorporation:
         return sum(
             (
                 1
-                if StandingRequest.has_required_scopes_for_request(
-                    character=character, user=user, quick_check=quick_check
+                if scopes.user_can_request_standing_for_character(
+                    user=user, character=character, quick_check=quick_check
                 )
                 else 0
             )
@@ -92,23 +90,26 @@ class EveCorporation:
         )
 
     def user_has_all_member_tokens(self, user: User, quick_check: bool = False) -> bool:
-        """returns True if given user owns same amount of token than there are
-        member characters in this corporation, else False
+        """Report whether a user owns same amount of tokens as there are
+        member characters in this corporation
 
         Params:
         - user: user owning the characters
         - quick: if True will not check if tokens are valid to save time
         """
-        return (
-            self.member_count is not None
-            and self.member_tokens_count_for_user(user=user, quick_check=quick_check)
-            >= self.member_count
+        if not self.member_count:
+            return False
+
+        valid_count = self.member_tokens_count_for_user(
+            user=user, quick_check=quick_check
         )
+        has_all_tokens = valid_count >= self.member_count
+        return has_all_tokens
 
     @classmethod
     def get_by_id(
         cls, corporation_id: int, ignore_cache: bool = False
-    ) -> Optional["EveCorporation"]:
+    ) -> Optional["EveCorporationHelper"]:
         """Get a corporation from the cache or ESI if not cached
         Corps are cached for 3 hours
 
@@ -137,14 +138,14 @@ class EveCorporation:
     @classmethod
     def fetch_corporation_from_api(
         cls, corporation_id: int
-    ) -> Optional["EveCorporation"]:
+    ) -> Optional["EveCorporationHelper"]:
         logger.debug(
             "Attempting to fetch corporation from ESI with id %s", corporation_id
         )
         try:
-            info = esi.client.Corporation.get_corporations_corporation_id(
+            obj = esi.client.Corporation.GetCorporationsCorporationId(
                 corporation_id=corporation_id
-            ).results()
+            ).result(use_etag=False)
         except HTTPError:
             logger.exception(
                 "Failed to fetch corporation from ESI with id %i", corporation_id
@@ -153,19 +154,21 @@ class EveCorporation:
 
         args = {
             "corporation_id": corporation_id,
-            "corporation_name": info["name"],
-            "ticker": info["ticker"],
-            "member_count": info["member_count"],
-            "ceo_id": info["ceo_id"],
+            "corporation_name": obj.name,
+            "ticker": obj.ticker,
+            "member_count": obj.member_count,
+            "ceo_id": obj.ceo_id,
         }
-        if "alliance_id" in info and info["alliance_id"]:
-            args["alliance_id"] = info["alliance_id"]
-            args["alliance_name"] = EveEntity.objects.resolve_name(info["alliance_id"])
+        if obj.alliance_id:
+            args["alliance_id"] = obj.alliance_id
+            args["alliance_name"] = EveEntity.objects.resolve_name(obj.alliance_id)
 
         return cls(**args)
 
     @classmethod
-    def get_many_by_id(cls, corporation_ids: Iterable[int]) -> List["EveCorporation"]:
+    def get_many_by_id(
+        cls, corporation_ids: Iterable[int]
+    ) -> List["EveCorporationHelper"]:
         """Returns multiple corporations by ID
 
         Fetches requested corporations from cache or API as needed.
@@ -176,7 +179,7 @@ class EveCorporation:
             return []
 
         # make sure client is loaded before starting threads
-        esi.client.Status.get_status().results()
+        esi.client.Status.GetStatus().result(use_etag=False)
         logger.info(
             "Starting to fetch the %d corporations from ESI with up to %d workers",
             len(corporation_ids_unique),
@@ -195,3 +198,24 @@ class EveCorporation:
         results_raw = (f.result() for f in futures)
         results = [obj for obj in results_raw if obj is not None]
         return results
+
+
+def user_can_request_corporation_standing(user: User, corporation_id: int) -> bool:
+    """
+    Report whether user is permitted to request standing for a corporation.
+
+    A user must own all of the required corp tokens to be permitted to request standing.
+
+    Params
+    - corporation_id: corp to check for
+    - user: User to check for
+
+    returns True if they can request standings, False if they cannot
+    """
+    corporation = EveCorporationHelper.get_by_id(corporation_id)
+    is_permitted = (
+        corporation is not None
+        and not corporation.is_npc
+        and corporation.user_has_all_member_tokens(user)
+    )
+    return is_permitted

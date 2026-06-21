@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [3.0.0b1] - 2026-06-21
+
+### Update notes
+
+Please update your configuration for the periodic tasks in your local settings file to avoid load peaks on FC's servers.
+
+The new configuration is:
+
+```python
+CELERYBEAT_SCHEDULE["standings_requests_standings_update"] = {
+    "task": "standings_requests.standings_update",
+    "schedule": 1800,  # 0.5 hours
+}
+CELERYBEAT_SCHEDULE["standings_requests_update_associations_api"] = {
+    "task": "standings_requests.update_associations_api",
+    "schedule": 12600,  # 3.5 hours
+}
+CELERYBEAT_SCHEDULE["standings_requests_validate_requests"] = {
+    "task": "standings_requests.validate_requests",
+    "schedule": 21600,  # 6 hours
+}
+CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
+    "task": "standings_requests.purge_stale_data",
+    "schedule": 86400,  # 24 hours
+}
+```
+
+### Added
+
+- Shows contacts on admin site
+
+### Changed
+
+- BREAKING CHANGE: Removed support for Python 3.8
+- BREAKING CHANGE: Removed support for Python 3.9
+- BREAKING CHANGE: Required scopes per state for requesting standing are now optional
+- Added support for AA5
+- Now uses local spec file for django-esi
+- Migrated to new eveuniverse version that uses the OpenAPI client
+- Removed logger tag
+- No longer shows contact sets on admin site
+- Modernized test suite
+- Refactoring
+
 ## [2.0.0] - 2026-03-24
 
 ### Update notes

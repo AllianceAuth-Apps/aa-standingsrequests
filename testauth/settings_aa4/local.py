@@ -76,6 +76,11 @@ DEFAULT_FROM_EMAIL = ""
 LOGGING = None
 STATICFILES_DIRS = []
 
+# Workaround for fixing the "Missing staticfiles manifest entry" bug in tests
+STORAGES["staticfiles"][
+    "BACKEND"
+] = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
 # standingsrequests
 STANDINGS_API_CHARID = 1001
 STR_CORP_IDS = []

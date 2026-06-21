@@ -7,8 +7,8 @@ from esi.views import select_token, sso_redirect
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .models import StandingRequest
+from standingsrequests import __title__
+from standingsrequests.core import app_config
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -20,7 +20,7 @@ def token_required_by_state(new=False):
     No scopes can be provided instead scopes are selected
     from the scopes that are set as
     required for a specific state in the settings.
-    param: new if a new token should be aquired
+    param: new if a new token should be acquired
     """
 
     def decorator(view_func):
@@ -29,7 +29,7 @@ def token_required_by_state(new=False):
             scopes = ""
             if request.user.profile.state is not None:
                 scopes = " ".join(
-                    StandingRequest.get_required_scopes_for_state(
+                    app_config.required_scopes_for_state(
                         request.user.profile.state.name
                     )
                 )

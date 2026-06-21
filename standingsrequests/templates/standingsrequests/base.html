@@ -1,0 +1,59 @@
+{% extends 'allianceauth/base-bs5.html' %}
+{% load i18n %}
+{% load static %}
+{% load navactive %}
+
+{% block page_title %}{{ page_title|striptags }} - {{ app_title }}{% endblock %}
+
+{% block header_nav_brand %}{{ app_title }}{% endblock %}
+
+{% block header_nav_collapse_left %}
+    <li class="nav-item">
+        <a class="nav-link {% navactive request 'standingsrequests:create_requests' %}" href="{% url 'standingsrequests:create_requests' %}">{% translate "My Requests" %}</a>
+    </li>
+
+    {% if perms.standingsrequests.affect_standings %}
+        <li class="nav-item">
+            <a class="nav-link {% navactive request 'standingsrequests:manage' %}" href="{% url 'standingsrequests:manage' %}">
+                {% translate "Manage Requests" %}
+                {% if pending_total_count > 0 %}
+                    &nbsp;<span class="badge text-bg-success">{{ pending_total_count }}</span>
+                {% endif %}
+            </a>
+        </li>
+    {% endif %}
+
+    <li class="nav-item">
+        <a class="nav-link {% navactive request 'standingsrequests:standings' %}" href="{% url 'standingsrequests:standings' %}">
+            {% translate "Standings" %}
+        </a>
+    </li>{% endblock %}
+
+{% block header_nav_collapse_right %}
+    {% if perms.standingsrequests.affect_standings %}
+        <li class="nav-item">
+            <a class="btn btn-success me-2" href="{% url 'standingsrequests:view_auth_page' %}">
+                {% if operation_mode == "corporation" %}
+                    {% translate "Setup Corporation Token" %}
+                {% else %}
+                    {% translate "Setup Alliance Token" %}
+                {% endif %}
+            </a>
+        </li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {% include "framework/header/page-header.html" with title=page_title %}
+    {% block details %}{% endblock %}
+{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'standingsrequests/css/global.css' %}" type="text/css" media="screen">
+{% endblock extra_css %}
+
+{% block header_nav_user_character_control %}
+    {% comment %}
+        This block is left empty intentionally to disable defaults.
+    {% endcomment %}
+{% endblock %}

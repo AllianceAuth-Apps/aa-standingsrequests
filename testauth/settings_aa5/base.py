@@ -24,11 +24,11 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "django_celery_beat",
     "solo",
-    "bootstrapform",
     "django_bootstrap5",  # https://github.com/zostera/django-bootstrap5
     "sortedm2m",
     "esi",
     "allianceauth.framework",
+    "allianceauth.admin_status",
     "allianceauth.authentication",
     "allianceauth.services",
     "allianceauth.eveonline",
@@ -217,6 +217,15 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.10/howto/static-files/
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "allianceauth.framework.staticfiles.storage.AaManifestStaticFilesStorage",
+    },
+}
+
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     os.path.join(PROJECT_DIR, "static"),
@@ -297,6 +306,14 @@ LOGGING = {
             "maxBytes": 1024 * 1024 * 5,  # edit this line to change max log file size
             "backupCount": 5,  # edit this line to change number of log backups
         },
+        "mumble_authenticator_file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "log/mumble_authenticator.log"),
+            "formatter": "verbose",
+            "maxBytes": 1024 * 1024 * 5,  # edit this line to change max log file size
+            "backupCount": 5,  # edit this line to change number of log backups
+        },
         "console": {
             "level": "DEBUG",  # edit this line to change logging level to console
             "class": "logging.StreamHandler",
@@ -315,6 +332,10 @@ LOGGING = {
         },
         "extensions": {
             "handlers": ["extension_file", "console"],
+            "level": "DEBUG",
+        },
+        "mumble_authenticator": {
+            "handlers": ["mumble_authenticator_file", "console"],
             "level": "DEBUG",
         },
         "django": {
