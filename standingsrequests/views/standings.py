@@ -14,10 +14,9 @@ from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
 from standingsrequests.app_settings import SR_PAGE_CACHE_SECONDS
-from standingsrequests.core import app_config
+from standingsrequests.core import app_config, scopes
 from standingsrequests.core.contact_types import ContactTypeId
 from standingsrequests.core.writers import UnicodeWriter
-from standingsrequests.helpers import eve_character
 from standingsrequests.models import Contact, ContactSet, StandingRequest
 
 from ._common import DEFAULT_ICON_SIZE, add_common_context, label_with_icon
@@ -227,7 +226,7 @@ def download_pilot_standings(request):
                 main_character_name = main.character_name
 
         has_scopes = (
-            eve_character.user_has_scopes_for_requesting_standing(
+            scopes.user_can_request_standing_for_character(
                 user=user, character=character, quick_check=True
             )
             if user

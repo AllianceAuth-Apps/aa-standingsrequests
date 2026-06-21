@@ -23,9 +23,8 @@ from app_utils.logging import LoggerAddTag
 from standingsrequests import __title__
 from standingsrequests.app_settings import SR_NOTIFICATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult, OperationMode
-from standingsrequests.core import app_config
+from standingsrequests.core import app_config, scopes
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers import eve_character
 from standingsrequests.helpers.eve_corporation import (
     user_can_request_corporation_standing,
 )
@@ -466,7 +465,7 @@ class StandingRequestManager(AbstractStandingsRequestManager):
             logger.warning("%s: Character already has a pending request", character)
             return CreateCharacterRequestResult.CHARACTER_HAS_REQUEST
 
-        if not eve_character.user_has_scopes_for_requesting_standing(
+        if not scopes.user_can_request_standing_for_character(
             user=user, character=character
         ):
             logger.warning("%s: Character does not have the required scopes", character)

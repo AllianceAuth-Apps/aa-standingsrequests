@@ -9,9 +9,8 @@ from allianceauth.eveonline.models import EveCharacter
 
 from standingsrequests import __title__
 from standingsrequests.constants import DATETIME_FORMAT_HTML
-from standingsrequests.core import app_config
+from standingsrequests.core import app_config, scopes
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers import eve_character
 from standingsrequests.helpers.eve_character import EveCharacterHelper
 from standingsrequests.helpers.eve_corporation import EveCorporationHelper
 from standingsrequests.models import (
@@ -145,7 +144,7 @@ class OrganizationInfo:
             )
             alliance_id = character.alliance_id
             alliance_name = character.alliance_name if character.alliance_name else ""
-            has_scopes = eve_character.user_has_scopes_for_requesting_standing(
+            has_scopes = scopes.user_can_request_standing_for_character(
                 user=req.user, character=character, quick_check=quick_check
             )
             return cls(

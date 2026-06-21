@@ -13,7 +13,7 @@ from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
 from standingsrequests.constants import DEFAULT_IMAGE_SIZE
-from standingsrequests.helpers import eve_character
+from standingsrequests.core import scopes
 from standingsrequests.providers import esi
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -81,7 +81,7 @@ class EveCorporationHelper:
         return sum(
             (
                 1
-                if eve_character.user_has_scopes_for_requesting_standing(
+                if scopes.user_can_request_standing_for_character(
                     user=user, character=character, quick_check=quick_check
                 )
                 else 0
