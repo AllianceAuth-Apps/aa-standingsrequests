@@ -16,8 +16,8 @@ from standingsrequests import __title__
 from standingsrequests.app_settings import SR_PAGE_CACHE_SECONDS
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
+from standingsrequests.core.writers import UnicodeWriter
 from standingsrequests.helpers import eve_character
-from standingsrequests.helpers.writers import UnicodeWriter
 from standingsrequests.models import Contact, ContactSet, StandingRequest
 
 from ._common import DEFAULT_ICON_SIZE, add_common_context, label_with_icon
