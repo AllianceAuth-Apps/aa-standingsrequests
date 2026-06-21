@@ -63,59 +63,25 @@ esi-alliances.read_contacts.v1
 esi-corporations.read_contacts.v1
 ```
 
-### Step 3 - Python installation
+### Step 3 - Install app
 
-Activate your virtual environment and install this app with:
+Make sure you are in the virtual environment (venv) of your Alliance Auth installation. Then install the newest release from PyPI:
 
 ```bash
 pip install aa-standingsrequests
 ```
 
-### Step 4 - Django Installation
+### Step 4 - Configure settings
 
-Add `'standingsrequests'` to `INSTALLED_APPS` in your Alliance Auth local settings file. Also add the other settings from the [Settings Example](#settings-example) and update the example config for your alliance.
+Add `'standingsrequests'` to `INSTALLED_APPS` in your Alliance Auth local settings file.
 
-The most important part of the settings is `STANDINGS_API_CHARID`, which need to be the Eve Online ID of the character that will be used to sync standings with your alliance or corporation.
-
-Run database migrations:
-
-```bash
-python manage.py migrate standingsrequests
-```
-
-Copy static files to your webserver:
-
-```bash
-python manage.py collectstatic
-```
-
-Finally restart Django and Celery.
-
-### Step 5 - Setup app within Auth
-
-Open the standingsrequests app in Alliance Auth and add the token for the configured standings character. This will initiate the first pull of standings. You will get a notification once the standings pull is completed (Usually within a few minutes).
-
-Last, but not least make sure to add [permissions](#permissions) to groups / states as required to make the new app available to users.
-
-That's it, you should be ready to roll.
-
-## Settings Example
-
-Here is a complete example of all settings that goes into your local settings file.
+Also add the settings from the below example config and update the example IDs for your instance.
 
 ```Python
-# id of character to use for updating alliance contacts
-STANDINGS_API_CHARID = 1234
-STR_CORP_IDS = [CORP1ID, CORP2ID, ...]
-STR_ALLIANCE_IDS = [YOUR_ALLIANCE_ID, ...]
-
-# This is a map, where the key is the State the user is in
-# and the value is a list of required scopes to check
-SR_REQUIRED_SCOPES = {
-    'Member': ['publicData'],
-    'Blue': [],
-    '': []  # no state
-}
+SR_OPERATION_MODE = "alliance"
+STANDINGS_API_CHARID = 90_000_001 # character used for syncing contacts
+STR_CORP_IDS = [98_000_001, 98_000_002] # corporations considered in organization
+STR_ALLIANCE_IDS = [99_000_001] # alliances considered in organization
 
 # CELERY tasks
 CELERYBEAT_SCHEDULE["standings_requests_standings_update"] = {
@@ -136,6 +102,32 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
 }
 ```
 
+The most important part of the settings is `STANDINGS_API_CHARID`, which need to be the Eve Online ID of the character that will be used to sync standings with your alliance or corporation.
+
+### Step 5 - Finalize installation
+
+Run database migrations:
+
+```bash
+python manage.py migrate standingsrequests
+```
+
+Copy static files to your webserver:
+
+```bash
+python manage.py collectstatic
+```
+
+Finally restart Django and Celery.
+
+### Step 6 - Setup app within Auth
+
+Open the standingsrequests app in Alliance Auth and add the token for the configured standings character. This will initiate the first pull of standings. You will get a notification once the standings pull is completed (Usually within a few minutes).
+
+Last, but not least make sure to add [permissions](#permissions) to groups / states as required to make the new app available to users.
+
+That's it, you should be ready to roll.
+
 ## Settings
 
 Here is a brief explanation of all available settings:
@@ -145,14 +137,14 @@ Name | Description | Default
 `SR_CORPORATIONS_ENABLED` | switch to enable/disable ability to request standings for corporations | `True`
 `SR_NOTIFICATIONS_ENABLED` | Send notifications to users about the results of standings requests and standing changes of their characters | `True`
 `SR_OPERATION_MODE` | Select the entity type of your standings master. Can be: `"alliance"` or `"corporation"` | `"alliance"`
-`SR_REQUIRED_SCOPES` | map of required scopes per state (Mandatory, can be [] per state) | -
+`SR_REQUIRED_SCOPES` | Map of required scopes per state (Mandatory, can be [] per state). This allows requiring specific scopes for each character and state for requesting standing. Optional. | -
 `SR_PAGE_CACHE_SECONDS` | Number of seconds to cache heavy pages like character and groups standing. Set to 0 to disable. | `600`
 `SR_STANDINGS_STALE_HOURS` | Standing data will be considered stale and removed from the local database after the configured hours. The latest standings data will never be purged, no matter how old it is | `48`
 `SR_STANDING_TIMEOUT_HOURS` | Max hours to wait for a standing to be effective after being marked actioned. Non effective standing requests will be reset when this timeout expires. | `24`
 `SR_SYNC_BLUE_ALTS_ENABLED` | Automatically sync standing of alts known to Auth that have standing in game | `True`
 `STANDINGS_API_CHARID` | Eve Online ID of character to use for fetching alliance contacts from ESI (Mandatory) | -
-`STR_ALLIANCE_IDS` | Eve Online ID of alliances. Characters belonging to one of those alliances are considered "in organization". Your main alliance goes here when in alliance mode. (Mandatory, can be []) | -
-`STR_CORP_IDS` | Eve Online ID of corporations. Characters belonging to one of those corporations are considered "in organization". Your main corporation goes here when in corporation mode. (Mandatory, can be []) | -
+`STR_ALLIANCE_IDS` | Eve Online ID of alliances. Characters belonging to one of those alliances are considered "in organization". Your main alliance goes here when in alliance mode. (Mandatory, can be []) | `[]`
+`STR_CORP_IDS` | Eve Online ID of corporations. Characters belonging to one of those corporations are considered "in organization". Your main corporation goes here when in corporation mode. (Mandatory, can be []) | `[]`
 
 ## Permissions
 

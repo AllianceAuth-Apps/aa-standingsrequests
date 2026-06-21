@@ -71,7 +71,11 @@ def user_has_scopes_for_requesting_standing(
     except ObjectDoesNotExist:
         return False
 
-    scopes_string = " ".join(app_config.required_scopes_for_state(state_name))
+    scopes = app_config.required_scopes_for_state(state_name)
+    if not scopes:
+        return True
+
+    scopes_string = " ".join(scopes)
     token_qs = Token.objects.filter(character_id=character.character_id).require_scopes(
         scopes_string
     )

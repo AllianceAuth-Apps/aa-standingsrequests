@@ -30,7 +30,11 @@ SR_OPERATION_MODE = clean_setting(
 SR_REQUIRED_SCOPES = getattr(
     settings,
     "SR_REQUIRED_SCOPES",
-    {"Member": ["publicData"], "Blue": [], "": []},  # no state
+    {
+        "Member": [],
+        "Blue": [],
+        "": [],  # no state
+    },
 )
 
 # Standing data will be considered stale and removed from the local

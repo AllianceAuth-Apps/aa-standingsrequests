@@ -42,6 +42,7 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
 
 - BREAKING CHANGE: Removed support for Python 3.8
 - BREAKING CHANGE: Removed support for Python 3.9
+- BREAKING CHANGE: Required scopes per state for requesting standing are now optional
 - Added support for AA5
 - Now uses local spec file for django-esi
 - Migrated to new eveuniverse version that uses the OpenAPI client

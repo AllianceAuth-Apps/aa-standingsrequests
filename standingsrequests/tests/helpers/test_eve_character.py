@@ -71,6 +71,20 @@ class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
         # then
         self.assertTrue(got)
 
+    def test_should_confirm_when_state_does_not_require_scopes(
+        self, mock_required_scopes_for_state
+    ):
+        mock_required_scopes_for_state.return_value = []
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
+        add_character_to_user(user, character)
+
+        # when
+        got = user_has_scopes_for_requesting_standing(user, character, quick_check=True)
+
+        # then
+        self.assertTrue(got)
+
     def test_should_deny_when_user_has_character_token_but_with_wrong_scopes(
         self, mock_required_scopes_for_state
     ):
