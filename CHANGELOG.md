@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
-## [3.0.0] - TBD
+## [3.0.0b1] - 2026-06-21
 
 ### Update notes
 
@@ -36,7 +36,7 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
 
 ### Added
 
-- Show current contacts on admin site
+- Shows contacts on admin site
 
 ### Changed
 
@@ -49,6 +49,7 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
 - Removed logger tag
 - No longer shows contact sets on admin site
 - Modernized test suite
+- Refactoring
 
 ## [2.0.0] - 2026-03-24
 

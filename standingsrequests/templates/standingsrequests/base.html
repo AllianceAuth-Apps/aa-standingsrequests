@@ -17,7 +17,7 @@
             <a class="nav-link {% navactive request 'standingsrequests:manage' %}" href="{% url 'standingsrequests:manage' %}">
                 {% translate "Manage Requests" %}
                 {% if pending_total_count > 0 %}
-                    &nbsp;<span class="badge badge-nav">{{ pending_total_count }}</span>
+                    &nbsp;<span class="badge text-bg-success">{{ pending_total_count }}</span>
                 {% endif %}
             </a>
         </li>

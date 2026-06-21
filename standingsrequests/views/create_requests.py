@@ -112,7 +112,7 @@ def request_characters(request):
             characters_standings_requests=characters_standings_requests,
             characters_standing_revocation=characters_standing_revocation,
         )
-        for character in eve_characters.values()
+        for character in sorted(eve_characters.values(), key=lambda k: k.character_name)
     ]
 
     context = {"characters": characters_data}
