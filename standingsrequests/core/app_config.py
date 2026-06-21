@@ -8,6 +8,7 @@ from allianceauth.eveonline.models import EveCharacter
 
 from standingsrequests.app_settings import (
     SR_OPERATION_MODE,
+    SR_REQUIRED_SCOPES,
     STANDINGS_API_CHARID,
     STR_ALLIANCE_IDS,
     STR_CORP_IDS,
@@ -66,3 +67,9 @@ def alliance_ids() -> Set[int]:
     """Return alliance IDs, which belong to the configured organization."""
     result = {int(org_id) for org_id in list(STR_ALLIANCE_IDS)}
     return result
+
+
+def required_scopes_for_state(state_name: str) -> list:
+    """Return list of required scopes for a state given by state_name."""
+    state_name = "" if not state_name else state_name
+    return SR_REQUIRED_SCOPES[state_name] if state_name in SR_REQUIRED_SCOPES else []

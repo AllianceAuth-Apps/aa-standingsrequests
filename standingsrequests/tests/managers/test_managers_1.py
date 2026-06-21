@@ -41,7 +41,7 @@ from standingsrequests.tests.factories import (
 )
 from standingsrequests.tests.utils import TestCaseWithClearCache, extract
 
-CORE_PATH = "standingsrequests.core"
+APP_CONFIG_PATH = "standingsrequests.core.app_config"
 MANAGERS_PATH = "standingsrequests.managers"
 MODELS_PATH = "standingsrequests.models"
 STANDINGS_API_CHARID = 90_000_123
@@ -88,10 +88,9 @@ class TestContactSetManager_CreateNewFromApi(TestCaseWithClearCache):
 
         # when
         with (
-            patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "alliance"),
+            patch(APP_CONFIG_PATH + ".SR_OPERATION_MODE", "alliance"),
             patch(
-                CORE_PATH + ".app_config.STANDINGS_API_CHARID",
-                owner_character.character_id,
+                APP_CONFIG_PATH + ".STANDINGS_API_CHARID", owner_character.character_id
             ),
         ):
             contact_set: ContactSet = ContactSet.objects.create_new_from_api()
@@ -150,9 +149,9 @@ class TestContactSetManager_CreateNewFromApi(TestCaseWithClearCache):
 
         # when
         with (
-            patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", "corporation"),
+            patch(APP_CONFIG_PATH + ".SR_OPERATION_MODE", "corporation"),
             patch(
-                CORE_PATH + ".app_config.STANDINGS_API_CHARID",
+                APP_CONFIG_PATH + ".STANDINGS_API_CHARID",
                 owner_character.character_id,
             ),
         ):
@@ -189,7 +188,7 @@ class TestAbstractStandingsRequestManager_PendingRequests(NoSocketsTestCase):
 
 
 @patch(MANAGERS_PATH + ".app_config.SR_OPERATION_MODE", "alliance")
-@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
+@patch(APP_CONFIG_PATH + ".STANDINGS_API_CHARID", STANDINGS_API_CHARID)
 @patch(MANAGERS_PATH + ".notify")
 class TestAbstractStandingsRequest_ProcessRequests(NoSocketsTestCase):
     @classmethod
@@ -420,7 +419,7 @@ class TestStandingsRequest_ValidateRequests(NoSocketsTestCase):
 
 
 @patch(MANAGERS_PATH + ".create_eve_entities", MagicMock())
-@patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["required_scope"]})
+@patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["required_scope"]})
 class TestStandingsRequestManager_CreateCharacterRequest(NoSocketsTestCase):
     def test_should_create_pending_request_when_contact_has_no_standing(self):
         # given

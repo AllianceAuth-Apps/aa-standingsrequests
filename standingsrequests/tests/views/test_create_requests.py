@@ -27,8 +27,7 @@ from standingsrequests.tests.factories import (
 )
 from standingsrequests.views import create_requests
 
-CORE_PATH = "standingsrequests.core"
-MODELS_PATH = "standingsrequests.models"
+APP_CONFIG_PATH = "standingsrequests.core.app_config"
 MANAGERS_PATH = "standingsrequests.managers"
 VIEWS_PATH = "standingsrequests.views.create_requests"
 
@@ -37,7 +36,7 @@ STANDINGS_API_CHARID = 90_000_123
 STANDINGS_CORPORATION_ID = 97_000_123
 
 
-@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
+@patch(APP_CONFIG_PATH + ".STANDINGS_API_CHARID", STANDINGS_API_CHARID)
 @patch(VIEWS_PATH + ".update_all")
 @patch(VIEWS_PATH + ".messages")
 class TestViewAuthPage(NoSocketsTestCase):
@@ -75,7 +74,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         for operation_mode in cases:
             with self.subTest(operation_mode=operation_mode):
                 # when
-                with patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", operation_mode):
+                with patch(APP_CONFIG_PATH + ".SR_OPERATION_MODE", operation_mode):
                     response = self._make_request(user, owner_character)
 
                 # then
@@ -105,7 +104,7 @@ class TestViewAuthPage(NoSocketsTestCase):
         for operation_mode in cases:
             with self.subTest(operation_mode=operation_mode):
                 # when
-                with patch(CORE_PATH + ".app_config.SR_OPERATION_MODE", operation_mode):
+                with patch(APP_CONFIG_PATH + ".SR_OPERATION_MODE", operation_mode):
                     response = self._make_request(user, user.profile.main_character)
 
                 # then
@@ -225,8 +224,8 @@ class TestIndexView(NoSocketsTestCase):
 #         self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
-@patch(CORE_PATH + ".app_config.STANDINGS_API_CHARID", STANDINGS_API_CHARID)
-@patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["required_scope"]})
+@patch(APP_CONFIG_PATH + ".STANDINGS_API_CHARID", STANDINGS_API_CHARID)
+@patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": ["required_scope"]})
 @patch(MANAGERS_PATH + ".create_eve_entities", MagicMock())
 @patch(VIEWS_PATH + ".update_associations_api.delay")
 @patch(VIEWS_PATH + ".messages.error")

@@ -8,7 +8,7 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
-from standingsrequests.models import StandingRequest
+from standingsrequests.core import app_config
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -29,7 +29,7 @@ def token_required_by_state(new=False):
             scopes = ""
             if request.user.profile.state is not None:
                 scopes = " ".join(
-                    StandingRequest.get_required_scopes_for_state(
+                    app_config.required_scopes_for_state(
                         request.user.profile.state.name
                     )
                 )

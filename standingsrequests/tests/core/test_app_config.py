@@ -103,3 +103,21 @@ class TestIsCharacterAMember(NoSocketsTestCase):
                     self.assertEqual(
                         app_config.is_character_a_member(character), tc.want
                     )
+
+
+class TestGetRequiredScopesForState(NoSocketsTestCase):
+    def test_return_scopes_when_defined_for_state(self):
+        scope_name = "abc"
+        with patch(MODULE_PATH + ".SR_REQUIRED_SCOPES", {"member": [scope_name]}):
+            got = app_config.required_scopes_for_state("member")
+        self.assertCountEqual(got, [scope_name])
+
+    def test_return_empty_list_when_not_defined_for_state(self):
+        with patch(MODULE_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]}):
+            got = app_config.required_scopes_for_state("guest")
+        self.assertListEqual(got, [])
+
+    def test_return_empty_list_when_state_is_none(self):
+        with patch(MODULE_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]}):
+            got = app_config.required_scopes_for_state(None)
+        self.assertListEqual(got, [])

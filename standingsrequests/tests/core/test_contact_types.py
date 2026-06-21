@@ -1,4 +1,4 @@
-from django.test import TestCase
+from app_utils.testing import NoSocketsTestCase
 
 from standingsrequests.core.contact_types import ContactTypeId
 
@@ -6,7 +6,7 @@ CHARACTER_TYPE_ID = ContactTypeId.CHARACTER_AMARR
 CORPORATION_TYPE_ID = 2
 
 
-class TestContactType(TestCase):
+class TestContactType(NoSocketsTestCase):
     def test_get_contact_type(self):
         self.assertEqual(ContactTypeId.character_id(), CHARACTER_TYPE_ID)
 

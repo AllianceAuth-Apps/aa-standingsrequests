@@ -18,7 +18,7 @@ from app_utils.helpers import default_if_none
 from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
-from standingsrequests.app_settings import SR_REQUIRED_SCOPES, SR_STANDING_TIMEOUT_HOURS
+from standingsrequests.app_settings import SR_STANDING_TIMEOUT_HOURS
 from standingsrequests.constants import OperationMode
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
@@ -615,7 +615,7 @@ class StandingRequest(AbstractStandingsRequest):
         except ObjectDoesNotExist:
             return False
 
-        scopes_string = " ".join(cls.get_required_scopes_for_state(state_name))
+        scopes_string = " ".join(app_config.required_scopes_for_state(state_name))
         token_qs = Token.objects.filter(
             character_id=character.character_id
         ).require_scopes(scopes_string)
@@ -625,13 +625,6 @@ class StandingRequest(AbstractStandingsRequest):
 
         result = token_qs.exists()
         return result
-
-    @staticmethod
-    def get_required_scopes_for_state(state_name: str) -> list:
-        state_name = "" if not state_name else state_name
-        return (
-            SR_REQUIRED_SCOPES[state_name] if state_name in SR_REQUIRED_SCOPES else []
-        )
 
 
 class StandingRevocation(AbstractStandingsRequest):

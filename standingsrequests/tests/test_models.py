@@ -151,9 +151,6 @@ class TestContactSet(NoSocketsTestCase):
         self.assertIsInstance(str(cs), str)
 
 
-@patch(
-    MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Member": ["my_scope"], "Blue": [], "": []}
-)
 @patch(CORE_PATH + ".app_config.STR_ALLIANCE_IDS", [STANDINGS_ALLIANCE_ID])
 @patch("standingsrequests.managers.create_eve_entities", Mock())
 class TestContactSet_GenerateStandingRequestsForBlueAlts(NoSocketsTestCase):
@@ -577,31 +574,13 @@ class TestStandingRequest_Remove_Corporation(NoSocketsTestCase):
         self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
 
 
-class TestStandingRequest_GetRequiredScopesForState(NoSocketsTestCase):
-    def test_return_scopes_when_defined_for_state(self):
-        scope_name = "abc"
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": [scope_name]}):
-            got = StandingRequest.get_required_scopes_for_state("member")
-        self.assertCountEqual(got, [scope_name])
-
-    def test_return_empty_list_when_not_defined_for_state(self):
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]}):
-            got = StandingRequest.get_required_scopes_for_state("guest")
-        self.assertListEqual(got, [])
-
-    def test_return_empty_list_when_state_is_none(self):
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"member": ["abc"]}):
-            got = StandingRequest.get_required_scopes_for_state(None)
-        self.assertListEqual(got, [])
-
-
-@patch(MODELS_PATH + ".StandingRequest.get_required_scopes_for_state")
+@patch(MODELS_PATH + ".app_config.required_scopes_for_state")
 class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
     def test_should_confirm_when_user_has_character_token_with_required_scopes(
-        self, mock_get_required_scopes_for_state
+        self, mock_required_scopes_for_state
     ):
         scope_name = "abc"
-        mock_get_required_scopes_for_state.return_value = [scope_name]
+        mock_required_scopes_for_state.return_value = [scope_name]
         user = UserMainRequestorFactory()
         character = EveCharacterFactory()
         add_character_to_user(user, character, scopes=[scope_name])
@@ -615,10 +594,10 @@ class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
         self.assertTrue(got)
 
     def test_should_deny_when_user_has_character_token_but_with_wrong_scopes(
-        self, mock_get_required_scopes_for_state
+        self, mock_required_scopes_for_state
     ):
         scope_name = "abc"
-        mock_get_required_scopes_for_state.return_value = [scope_name]
+        mock_required_scopes_for_state.return_value = [scope_name]
         user = UserMainRequestorFactory()
         character = EveCharacterFactory()
         add_character_to_user(user, character, scopes=["other_scope"])
@@ -632,10 +611,10 @@ class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
         self.assertFalse(got)
 
     def test_should_deny_when_character_has_no_owner(
-        self, mock_get_required_scopes_for_state
+        self, mock_required_scopes_for_state
     ):
         # given
-        mock_get_required_scopes_for_state.return_value = ["abc"]
+        mock_required_scopes_for_state.return_value = ["abc"]
         character = EveCharacterFactory()
 
         # when

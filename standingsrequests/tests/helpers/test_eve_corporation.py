@@ -20,7 +20,7 @@ from standingsrequests.tests.factories import (
 from standingsrequests.tests.utils import TestCaseWithClearCache
 
 EVECORPORATION_PATH = "standingsrequests.helpers.eve_corporation"
-MODELS_PATH = "standingsrequests.models"
+APP_CONFIG_PATH = "standingsrequests.core.app_config"
 
 
 class TestEveCorporation(NoSocketsTestCase):
@@ -249,7 +249,7 @@ class TestEveCorporation_MemberTokensCountForUser(NoSocketsTestCase):
         add_character_to_user(user, EveCharacterFactory())  # different corp
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
             result = corporation_2.member_tokens_count_for_user(user)
 
         # then
@@ -271,7 +271,7 @@ class TestEveCorporation_UserHasAllMemberTokens(NoSocketsTestCase):
         )  # same corp and valid scope
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
             got = corporation_2.user_has_all_member_tokens(user)
 
         # then
@@ -288,7 +288,7 @@ class TestEveCorporation_UserHasAllMemberTokens(NoSocketsTestCase):
         )
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
             got = corporation_2.user_has_all_member_tokens(user)
 
         # then
@@ -308,7 +308,7 @@ class TestEveCorporation_UserHasAllMemberTokens(NoSocketsTestCase):
         )
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": {scope_name}}):
             got = corporation_2.user_has_all_member_tokens(user)
 
         # then
@@ -333,7 +333,7 @@ class TestUserCanRequestCorporationStanding(NoSocketsTestCase):
         )
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
             got = user_can_request_corporation_standing(
                 user, corporation.corporation_id
             )
@@ -354,7 +354,7 @@ class TestUserCanRequestCorporationStanding(NoSocketsTestCase):
         )
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
             got = user_can_request_corporation_standing(
                 user, corporation.corporation_id
             )
@@ -380,7 +380,7 @@ class TestUserCanRequestCorporationStanding(NoSocketsTestCase):
         )
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
             got = user_can_request_corporation_standing(
                 user, corporation.corporation_id
             )
@@ -407,7 +407,7 @@ class TestUserCanRequestCorporationStanding(NoSocketsTestCase):
         )
 
         # when
-        with patch(MODELS_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
+        with patch(APP_CONFIG_PATH + ".SR_REQUIRED_SCOPES", {"Guest": [scope_name]}):
             got = user_can_request_corporation_standing(
                 user, corporation.corporation_id
             )
