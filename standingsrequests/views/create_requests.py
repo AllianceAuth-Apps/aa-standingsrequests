@@ -18,9 +18,9 @@ from app_utils.logging import LoggerAddTag
 from standingsrequests import __title__
 from standingsrequests.app_settings import SR_CORPORATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult
-from standingsrequests.core import app_config
+from standingsrequests.core import app_config, scopes
 from standingsrequests.decorators import token_required_by_state
-from standingsrequests.helpers.evecorporation import EveCorporation
+from standingsrequests.helpers.eve_corporation import EveCorporationHelper
 from standingsrequests.models import ContactSet, StandingRequest, StandingRevocation
 from standingsrequests.tasks import update_all, update_associations_api
 
@@ -58,6 +58,7 @@ def create_requests(request):
         "organization": organization,
         "organization_image_url": image_url,
         "authinfo": {"main_char_id": main_char_id},
+        "page_title": _("My Requests"),
     }
     return render(
         request,
@@ -111,7 +112,7 @@ def request_characters(request):
             characters_standings_requests=characters_standings_requests,
             characters_standing_revocation=characters_standing_revocation,
         )
-        for character in eve_characters.values()
+        for character in sorted(eve_characters.values(), key=lambda k: k.character_name)
     ]
 
     context = {"characters": characters_data}
@@ -155,8 +156,8 @@ def _create_character_row(
         "pendingRevocation": has_pending_revocation,
         "requestActioned": has_actioned_request,
         "inOrganisation": app_config.is_character_a_member(character),
-        "hasRequiredScopes": StandingRequest.has_required_scopes_for_request(
-            character, user=user, quick_check=True
+        "hasRequiredScopes": scopes.user_can_request_standing_for_character(
+            user=user, character=character, quick_check=True
         ),
         "hasStanding": has_standing,
     }
@@ -205,7 +206,7 @@ def request_corporations(request):
         for obj in (contact_set.contacts.filter(eve_entity_id__in=corporation_ids))
     }
     corporations_data = []
-    for corporation in EveCorporation.get_many_by_id(corporation_ids):
+    for corporation in EveCorporationHelper.get_many_by_id(corporation_ids):
         if not corporation or corporation.is_npc:
             continue
 
@@ -229,7 +230,7 @@ def request_corporations(request):
 
 def _create_corporation_row(
     user: User,
-    corporation: EveCorporation,
+    corporation: EveCorporationHelper,
     corporations_standing_requests,
     corporations_revocation_requests,
     corporation_contacts,
@@ -291,7 +292,7 @@ def request_character_standing(request: HttpRequest, character_id: int):
         str(request.user),
         character_id,
     )
-    character = get_object_or_404(
+    character: EveCharacter = get_object_or_404(
         EveCharacter.objects.select_related("character_ownership__user"),
         character_id=character_id,
     )
@@ -307,14 +308,12 @@ def request_character_standing(request: HttpRequest, character_id: int):
         if result is CreateCharacterRequestResult.CHARACTER_IS_MISSING_SCOPES:
             messages.error(
                 request,
-                _("You character %s is missing scopes.")
-                % EveEntity.objects.resolve_name(character_id),
+                _("You character %s is missing scopes.") % character.character_name,
             )
         elif result is CreateCharacterRequestResult.USER_IS_NOT_OWNER:
             messages.error(
                 request,
-                _("You are not the owner of character %s.")
-                % EveEntity.objects.resolve_name(character_id),
+                _("You are not the owner of character %s.") % character.character_name,
             )
         else:
             messages.error(
@@ -323,7 +322,7 @@ def request_character_standing(request: HttpRequest, character_id: int):
                     "An unexpected error occurred when trying to process "
                     "your standing request for %s. Please try again."
                 )
-                % EveEntity.objects.resolve_name(character_id),
+                % character.character_name,
             )
 
     return redirect("standingsrequests:create_requests")
@@ -340,10 +339,10 @@ def remove_character_standing(request: HttpRequest, character_id: int):
         str(request.user),
         character_id,
     )
-    req = get_object_or_404(StandingRequest, user=request.user, contact_id=character_id)
-    success = req.remove()
+    sr = get_object_or_404(StandingRequest, user=request.user, contact_id=character_id)
+    success = sr.remove()
     if not success:
-        messages.warning(
+        messages.error(
             request,
             _(
                 "An unexpected error occurred when trying to process "
@@ -367,7 +366,7 @@ def request_corp_standing(request: HttpRequest, corporation_id):
     if not StandingRequest.objects.create_corporation_request(
         request.user, corporation_id
     ):
-        messages.warning(
+        messages.error(
             request,
             _(
                 "An unexpected error occurred when trying to process "
@@ -387,16 +386,12 @@ def remove_corp_standing(request: HttpRequest, corporation_id: int):
     Handles both removing corp requests and removing existing standings
     """
     logger.debug("remove_corp_standing called by %s", request.user)
-    try:
-        req = StandingRequest.objects.filter(user=request.user).get(
-            contact_id=corporation_id
-        )
-    except StandingRequest.DoesNotExist:
-        success = False
-    else:
-        success = req.remove()
+    sr = get_object_or_404(
+        StandingRequest, user=request.user, contact_id=corporation_id
+    )
+    success = sr.remove()
     if not success:
-        messages.warning(
+        messages.error(
             request,
             _(
                 "An unexpected error occurred when trying to process "
@@ -409,7 +404,7 @@ def remove_corp_standing(request: HttpRequest, corporation_id: int):
 
 @login_required
 @permission_required("standingsrequests.affect_standings")
-@token_required(new=False, scopes=ContactSet.required_esi_scope())
+@token_required(new=False, scopes=app_config.required_esi_scope())
 def view_auth_page(request: HttpRequest, token: Token):
     source_entity = app_config.standings_source_entity()
     owner_character = app_config.owner_character()
@@ -465,7 +460,7 @@ def view_auth_page(request: HttpRequest, token: Token):
 
 @login_required
 @permission_required(StandingRequest.REQUEST_PERMISSION_NAME)
-@token_required_by_state(new=False)
+@token_required_by_state(new=False)  # TODO: Move decorator logic into view
 def view_requester_add_scopes(request: HttpRequest, token):
     messages.success(
         request,

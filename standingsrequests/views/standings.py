@@ -1,7 +1,9 @@
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import QuerySet
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.cache import cache_page
 from eveuniverse.models import EveEntity
 
@@ -12,10 +14,10 @@ from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
 from standingsrequests.app_settings import SR_PAGE_CACHE_SECONDS
-from standingsrequests.core import app_config
+from standingsrequests.core import app_config, scopes
 from standingsrequests.core.contact_types import ContactTypeId
-from standingsrequests.helpers.writers import UnicodeWriter
-from standingsrequests.models import ContactSet, StandingRequest
+from standingsrequests.core.writers import UnicodeWriter
+from standingsrequests.models import Contact, ContactSet, StandingRequest
 
 from ._common import DEFAULT_ICON_SIZE, add_common_context, label_with_icon
 
@@ -29,12 +31,26 @@ def standings(request):
         contact_set = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
         contact_set = None
+
     organization = app_config.standings_source_entity()
     last_update = contact_set.date if contact_set else None
+    character_count = contact_set.contacts.filter(
+        eve_entity__category=EveEntity.CATEGORY_CHARACTER
+    ).count()
+    corporation_count = contact_set.contacts.filter(
+        eve_entity__category=EveEntity.CATEGORY_CORPORATION
+    ).count()
+    alliance_count = contact_set.contacts.filter(
+        eve_entity__category=EveEntity.CATEGORY_ALLIANCE
+    ).count()
     context = {
         "lastUpdate": last_update,
         "organization": organization,
         "show_mains": request.user.has_perm("standingsrequests.view"),
+        "page_title": _("Standings"),
+        "character_count": character_count,
+        "corporation_count": corporation_count,
+        "alliance_count": alliance_count,
     }
     return render(
         request,
@@ -50,8 +66,9 @@ def character_standings_data(request):
     try:
         contacts = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
-        contacts = ContactSet()
-    character_contacts_qs = (
+        return JsonResponse({"data": []})
+
+    character_contacts_qs: QuerySet[Contact] = (
         contacts.contacts.filter_characters()
         .select_related(
             "eve_entity",
@@ -176,37 +193,55 @@ def download_pilot_standings(request):
     )
 
     # lets request make sure all info is there in bulk
-    character_contacts = contacts.contacts.all().order_by("eve_entity__name")
+    character_contacts: QuerySet[Contact] = contacts.contacts.select_related(
+        "eve_entity"
+    ).order_by("eve_entity__name")
     EveEntity.objects.bulk_resolve_names([p.contact_id for p in character_contacts])
 
     for pilot_standing in character_contacts:
         try:
-            char = EveCharacter.objects.get(character_id=pilot_standing.contact_id)
+            character = EveCharacter.objects.get(character_id=pilot_standing.contact_id)
         except EveCharacter.DoesNotExist:
-            char = None
-        main = ""
-        state = ""
+            character = None
+
+        main = None
+        state = None
         try:
-            ownership = CharacterOwnership.objects.get(character=char)
+            ownership = CharacterOwnership.objects.select_related(
+                "user",
+                "user__profile__state",
+                "user__profile__main_character",
+            ).get(character=character)
         except CharacterOwnership.DoesNotExist:
             main_character_name = ""
             main = None
+            user = None
         else:
+            user = ownership.user
             state = ownership.user.profile.state.name
             main = ownership.user.profile.main_character
             if main is None:
                 main_character_name = ""
             else:
                 main_character_name = main.character_name
+
+        has_scopes = (
+            scopes.user_can_request_standing_for_character(
+                user=user, character=character, quick_check=True
+            )
+            if user
+            else False
+        )
+
         pilot = [
-            pilot_standing.eve_entity_id,
+            pilot_standing.eve_entity.id,
             pilot_standing.eve_entity.name,
-            char.corporation_id if char else "",
-            char.corporation_name if char else "",
-            char.corporation_ticker if char else "",
-            char.alliance_id if char else "",
-            char.alliance_name if char else "",
-            StandingRequest.has_required_scopes_for_request(char),
+            character.corporation_id if character else "",
+            character.corporation_name if character else "",
+            character.corporation_ticker if character else "",
+            character.alliance_id if character else "",
+            character.alliance_name if character else "",
+            has_scopes,
             state,
             main_character_name,
             main.corporation_ticker if main else "",
@@ -224,8 +259,9 @@ def corporation_standings_data(request):
     try:
         contacts = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
-        contacts = ContactSet()
-    corporations_qs = (
+        return JsonResponse({"data": []})
+
+    corporations_qs: QuerySet[Contact] = (
         contacts.contacts.filter_corporations()
         .select_related(
             "eve_entity",
@@ -236,19 +272,15 @@ def corporation_standings_data(request):
         .prefetch_related("labels")
         .order_by("eve_entity__name")
     )
+
+    relevant_standing_requests = StandingRequest.objects.filter(
+        contact_type_id=ContactTypeId.CORPORATION
+    ).filter(
+        contact_id__in=list(corporations_qs.values_list("eve_entity_id", flat=True))
+    )
+    standings_requests = {obj.contact_id: obj for obj in relevant_standing_requests}
+
     corporations_data = []
-    standings_requests = {
-        obj.contact_id: obj
-        for obj in (
-            StandingRequest.objects.filter(
-                contact_type_id=ContactTypeId.CORPORATION
-            ).filter(
-                contact_id__in=list(
-                    corporations_qs.values_list("eve_entity_id", flat=True)
-                )
-            )
-        )
-    }
     for contact in corporations_qs:
         alliance_name, faction_name = _identify_corporation_organizations(contact)
         if request.user.has_perm("standingsrequests.view"):
@@ -259,27 +291,28 @@ def corporation_standings_data(request):
             ) = _identify_corporation_main(standings_requests, contact)
         else:
             main_character_name = main_character_html = state_name = ""
+
         labels_str = ", ".join(contact.labels_sorted)
         corporation_html = label_with_icon(
             contact.eve_entity.icon_url(DEFAULT_ICON_SIZE), contact.eve_entity.name
         )
         corporations_data.append(
             {
-                "corporation_id": contact.eve_entity_id,
+                "alliance_name": alliance_name,
                 "corporation_html": {
                     "display": corporation_html,
                     "sort": contact.eve_entity.name,
                 },
-                "alliance_name": alliance_name,
+                "corporation_id": contact.eve_entity_id,
                 "faction_name": faction_name,
-                "standing": contact.standing,
                 "labels_str": labels_str,
-                "state": state_name,
                 "main_character_name": main_character_name,
                 "main_character_html": {
                     "display": main_character_html,
                     "sort": main_character_name,
                 },
+                "standing": contact.standing,
+                "state": state_name,
             }
         )
     return JsonResponse({"data": corporations_data})
@@ -334,7 +367,8 @@ def alliance_standings_data(request):
     try:
         contacts = ContactSet.objects.latest()
     except ContactSet.DoesNotExist:
-        contacts = ContactSet()
+        return JsonResponse({"data": []})
+
     alliances_data = []
     for contact in (
         contacts.contacts.filter_alliances()

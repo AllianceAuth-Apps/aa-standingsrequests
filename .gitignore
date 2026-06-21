@@ -13,4 +13,5 @@ coverage.xml
 temp/
 htmlcov/
 *.log
-alliance_auth.sqlite3
+.env
+.temp/

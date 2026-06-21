@@ -11,6 +11,8 @@ SECRET_KEY = "t$@h+j#yqhmuy$x7$fkhytd&drajgfsb-6+j9pqn*vj0)gq&-2"
 # This is where css/images will be placed for your webserver to read
 STATIC_ROOT = "/var/www/testauth/static/"
 
+ESI_USER_CONTACT_EMAIL = "samplecontact@email.com"
+
 # Change this to change the name of the auth site displayed
 # in page titles and the site header.
 SITE_NAME = "testauth"
@@ -50,7 +52,6 @@ DATABASES['default'] = {
 ESI_SSO_CLIENT_ID = "dummy"
 ESI_SSO_CLIENT_SECRET = "dummy"
 ESI_SSO_CALLBACK_URL = "http://localhost:8000"
-ESI_USER_CONTACT_EMAIL = "email@dummy.com"
 
 # By default emails are validated before new users can log in.
 # It's recommended to use a free service like SparkPost or Elastic Email to send email.
@@ -74,6 +75,12 @@ DEFAULT_FROM_EMAIL = ""
 # workarounds to suppress warnings
 LOGGING = None
 STATICFILES_DIRS = []
+
+# Workaround for fixing the "Missing staticfiles manifest entry" bug in tests
+STORAGES["staticfiles"][
+    "BACKEND"
+] = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
 
 # standingsrequests
 STANDINGS_API_CHARID = 1001

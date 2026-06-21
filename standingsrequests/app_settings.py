@@ -2,7 +2,7 @@ from django.conf import settings
 
 from app_utils.django import clean_setting
 
-from .constants import OperationMode
+from standingsrequests.constants import OperationMode
 
 # switch to enable/disable ability to request standings for corporations
 SR_CORPORATIONS_ENABLED = clean_setting("SR_CORPORATIONS_ENABLED", True)
@@ -30,7 +30,11 @@ SR_OPERATION_MODE = clean_setting(
 SR_REQUIRED_SCOPES = getattr(
     settings,
     "SR_REQUIRED_SCOPES",
-    {"Member": ["publicData"], "Blue": [], "": []},  # no state
+    {
+        "Member": [],
+        "Blue": [],
+        "": [],  # no state
+    },
 )
 
 # Standing data will be considered stale and removed from the local

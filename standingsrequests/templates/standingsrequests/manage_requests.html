@@ -1,17 +1,14 @@
-{% extends "standingsrequests/_base.html" %}
-{% load bootstrap %}
+{% extends "standingsrequests/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block content %}
-    <h2>{% translate "Manage Requests" %}</h2>
-
+{% block details %}
     <ul class="nav nav-tabs" role="tablist">
         <li class="nav-item" role="presentation">
             <a class="nav-link active" href="#tab-requests" aria-controls="tab-requests" role="tab" data-bs-toggle="tab">
                 {% translate "Open Requests" %}
                 {% if requests_count > 0 %}
-                    &nbsp;<span class="badge badge-nav alert-info">
+                    &nbsp;<span class="badge text-bg-success">
                         {{ requests_count }}
                     </span>
                 {% endif %}
@@ -21,7 +18,7 @@
             <a class="nav-link" href="#tab-revocations" aria-controls="tab-revocations" role="tab" data-bs-toggle="tab">
                 {% translate "Open Revocations" %}
                 {% if revocations_count > 0 %}
-                    &nbsp;<span class="badge badge-nav alert-info">
+                    &nbsp;<span class="badge text-bg-success">
                         {{ revocations_count }}
                     </span>
                 {% endif %}
@@ -75,7 +72,7 @@
 
         </div>
     </div>
-{% endblock content %}
+{% endblock %}
 
 {% block extra_css %}
     {{ block.super }}

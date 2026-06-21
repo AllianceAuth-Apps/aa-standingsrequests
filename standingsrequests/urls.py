@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import (
+from standingsrequests.views import (
     admin,
     create_requests,
     effective_requests,
@@ -69,7 +69,7 @@ urlpatterns = [
         name="effective_requests_data",
     ),
     # manage requests
-    path("manage/", manage_requests.manage_standings, name="manage"),
+    path("manage/", manage_requests.manage_requests, name="manage"),
     path(
         "manage/requests/",
         manage_requests.manage_requests_list,

@@ -1,7 +1,6 @@
 from allianceauth.eveonline.evelinks import eveimageserver
 
 from standingsrequests.constants import DEFAULT_IMAGE_SIZE
-from standingsrequests.models import CharacterAffiliation
 
 
 class EveCharacterHelper:
@@ -14,6 +13,8 @@ class EveCharacterHelper:
     user = None
 
     def __init__(self, character_id):
+        from standingsrequests.models import CharacterAffiliation
+
         self.character_id = int(character_id)
         self.alliance_name = None
         try:

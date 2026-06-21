@@ -1,36 +1,46 @@
-{% extends "standingsrequests/_base.html" %}
+{% extends "standingsrequests/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block content %}
-
-    <h2>{{ operation_mode|capfirst }} {% translate "Standings" %}</h2>
-
+{% block details %}
     <ul class="nav nav-tabs" role="tablist">
-        <li role="presentation" class="nav-item">
+        <li class="nav-item" role="presentation">
             <a class="nav-link active" href="#tab-characters" aria-controls="tab-characters" role="tab" data-bs-toggle="tab">
                 {% translate "Characters" %}
+                {% if character_count > 0 %}
+                    &nbsp;<span class="badge text-bg-secondary">{{ character_count }}</span>
+                {% endif %}
             </a>
         </li>
-        <li role="presentation" class="nav-item">
+        <li class="nav-item" role="presentation">
             <a class="nav-link" href="#tab-corporations" aria-controls="tab-corporations" role="tab" data-bs-toggle="tab">
                 {% translate "Corporations" %}
+                {% if corporation_count > 0 %}
+                    &nbsp;<span class="badge text-bg-secondary">{{ corporation_count }}</span>
+                {% endif %}
             </a>
         </li>
-        <li role="presentation" class="nav-item">
+        <li class="nav-item" role="presentation">
             <a class="nav-link" href="#tab-alliances" aria-controls="tab-alliances" role="tab" data-bs-toggle="tab">
                 {% translate "Alliances" %}
+                {% if alliance_count > 0 %}
+                    &nbsp;<span class="badge text-bg-secondary">{{ alliance_count }}</span>
+                {% endif %}
+
             </a>
         </li>
     </ul>
 
     <div class="card card-default card-tabs border-0">
-        <div class="panel-body tab-content">
+        <div class="card-body tab-content">
                 {% include "standingsrequests/partials/tab_character_standings.html" %}
                 {% include "standingsrequests/partials/tab_corporation_standings.html" %}
                 {% include "standingsrequests/partials/tab_alliance_standings.html" %}
         </div>
     </div>
+
+    <br>
+
     <p class="text-muted">
         {% blocktranslate with organization_name=organization.name last_update=lastUpdate|timesince %}
             Current in-game contacts with standings for {{ organization_name }} •
@@ -39,7 +49,7 @@
     </p>
     <!-- transfer data to javascript -->
     {{ show_mains|json_script:"show-mains-data" }}
-{% endblock content %}
+{% endblock %}
 
 {% block extra_javascript %}
     {% include 'bundles/datatables-js-bs5.html' %}
