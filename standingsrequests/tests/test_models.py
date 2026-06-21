@@ -17,6 +17,7 @@ from standingsrequests.tests.factories import (
     ContactCharacterFactory,
     ContactCorporationFactory,
     ContactSetFactory,
+    FrozenAuthUserFactory,
     StandingRequestCharacterFactory,
     StandingRequestCorporationFactory,
     StandingRevocationCharacterFactory,
@@ -572,3 +573,32 @@ class TestStandingRequest_Remove_Corporation(NoSocketsTestCase):
         # then
         self.assertTrue(got)
         self.assertTrue(StandingRequest.objects.filter(pk=sr.pk).exists())
+
+
+class TestGatherEntityIds(NoSocketsTestCase):
+    def test_should_gather_all_entity_ids(self):
+        # given
+        alt = FrozenAuthUserFactory(create_faction=True)
+
+        # when
+        result = alt.entity_ids()
+
+        # then
+        expected = {
+            alt.alliance.id,
+            alt.character.id,
+            alt.corporation.id,
+            alt.faction.id,
+        }
+        self.assertSetEqual(result, expected)
+
+    def test_should_gather_entity_ids_and_ignore_none_values(self):
+        # given
+        alt = FrozenAuthUserFactory()
+
+        # when
+        result = alt.entity_ids()
+
+        # then
+        expected = {alt.alliance.id, alt.character.id, alt.corporation.id}
+        self.assertSetEqual(result, expected)
