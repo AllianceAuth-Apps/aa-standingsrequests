@@ -194,37 +194,55 @@ def download_pilot_standings(request):
     )
 
     # lets request make sure all info is there in bulk
-    character_contacts = contacts.contacts.all().order_by("eve_entity__name")
+    character_contacts: QuerySet[Contact] = contacts.contacts.select_related(
+        "eve_entity"
+    ).order_by("eve_entity__name")
     EveEntity.objects.bulk_resolve_names([p.contact_id for p in character_contacts])
 
     for pilot_standing in character_contacts:
         try:
-            char = EveCharacter.objects.get(character_id=pilot_standing.contact_id)
+            character = EveCharacter.objects.get(character_id=pilot_standing.contact_id)
         except EveCharacter.DoesNotExist:
-            char = None
-        main = ""
-        state = ""
+            character = None
+
+        main = None
+        state = None
         try:
-            ownership = CharacterOwnership.objects.get(character=char)
+            ownership = CharacterOwnership.objects.select_related(
+                "user",
+                "user__profile__state",
+                "user__profile__main_character",
+            ).get(character=character)
         except CharacterOwnership.DoesNotExist:
             main_character_name = ""
             main = None
+            user = None
         else:
+            user = ownership.user
             state = ownership.user.profile.state.name
             main = ownership.user.profile.main_character
             if main is None:
                 main_character_name = ""
             else:
                 main_character_name = main.character_name
+
+        has_scopes = (
+            eve_character.user_has_scopes_for_requesting_standing(
+                user=user, character=character, quick_check=True
+            )
+            if user
+            else False
+        )
+
         pilot = [
-            pilot_standing.eve_entity_id,
+            pilot_standing.eve_entity.id,
             pilot_standing.eve_entity.name,
-            char.corporation_id if char else "",
-            char.corporation_name if char else "",
-            char.corporation_ticker if char else "",
-            char.alliance_id if char else "",
-            char.alliance_name if char else "",
-            eve_character.has_required_scopes_for_request(char),
+            character.corporation_id if character else "",
+            character.corporation_name if character else "",
+            character.corporation_ticker if character else "",
+            character.alliance_id if character else "",
+            character.alliance_name if character else "",
+            has_scopes,
             state,
             main_character_name,
             main.corporation_ticker if main else "",

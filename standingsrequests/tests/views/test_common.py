@@ -38,7 +38,9 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         qs = StandingRequest.objects.all()
 
         # when
-        with patch(MODULE_PATH + ".eve_character.has_required_scopes_for_request") as m:
+        with patch(
+            MODULE_PATH + ".eve_character.user_has_scopes_for_requesting_standing"
+        ) as m:
             m.return_value = True
             got = _common.compose_standing_requests_data(qs)
 
@@ -74,7 +76,9 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         qs = StandingRevocation.objects.all()
 
         # when
-        with patch(MODULE_PATH + ".eve_character.has_required_scopes_for_request") as m:
+        with patch(
+            MODULE_PATH + ".eve_character.user_has_scopes_for_requesting_standing"
+        ) as m:
             m.return_value = True
             got = _common.compose_standing_requests_data(qs)
 
@@ -112,13 +116,13 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         # when
         with (
             patch(
-                MODULE_PATH + ".eve_character.has_required_scopes_for_request"
-            ) as has_required_scopes_for_request,
+                MODULE_PATH + ".eve_character.user_has_scopes_for_requesting_standing"
+            ) as user_has_scopes_for_requesting_standing,
             patch(
                 MODULE_PATH + ".EveCorporationHelper.get_many_by_id"
             ) as get_many_by_id,
         ):
-            has_required_scopes_for_request.return_value = True
+            user_has_scopes_for_requesting_standing.return_value = True
             get_many_by_id.return_value = [
                 EveCorporationHelperFactory(
                     ceo_id=corporation.ceo_id,
@@ -164,13 +168,13 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         # when
         with (
             patch(
-                MODULE_PATH + ".eve_character.has_required_scopes_for_request"
-            ) as has_required_scopes_for_request,
+                MODULE_PATH + ".eve_character.user_has_scopes_for_requesting_standing"
+            ) as user_has_scopes_for_requesting_standing,
             patch(
                 MODULE_PATH + ".EveCorporationHelper.get_many_by_id"
             ) as get_many_by_id,
         ):
-            has_required_scopes_for_request.return_value = True
+            user_has_scopes_for_requesting_standing.return_value = True
             get_many_by_id.return_value = [
                 EveCorporationHelperFactory(
                     ceo_id=corporation.ceo_id,

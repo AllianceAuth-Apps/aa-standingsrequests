@@ -5,7 +5,7 @@ from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
 from standingsrequests.helpers.eve_character import (
     EveCharacterHelper,
-    has_required_scopes_for_request,
+    user_has_scopes_for_requesting_standing,
 )
 from standingsrequests.tests.factories import (
     CharacterAffiliationFactory,
@@ -66,7 +66,7 @@ class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
         add_character_to_user(user, character, scopes=[scope_name])
 
         # when
-        got = has_required_scopes_for_request(character, quick_check=True)
+        got = user_has_scopes_for_requesting_standing(user, character, quick_check=True)
 
         # then
         self.assertTrue(got)
@@ -81,20 +81,24 @@ class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
         add_character_to_user(user, character, scopes=["other_scope"])
 
         # when
-        got = has_required_scopes_for_request(character, quick_check=True)
+        got = user_has_scopes_for_requesting_standing(user, character, quick_check=True)
 
         # then
         self.assertFalse(got)
 
-    def test_should_deny_when_character_has_no_owner(
+    def test_should_deny_when_user_does_not_own_the_character(
         self, mock_required_scopes_for_state
     ):
         # given
-        mock_required_scopes_for_state.return_value = ["abc"]
+        scope_name = "abc"
+        mock_required_scopes_for_state.return_value = [scope_name]
+        user_1 = UserMainRequestorFactory()
         character = EveCharacterFactory()
+        user_2 = UserMainRequestorFactory()
+        add_character_to_user(user_2, character, scopes=[scope_name])
 
         # when
-        got = has_required_scopes_for_request(character)
+        got = user_has_scopes_for_requesting_standing(user_1, character)
 
         # then
         self.assertFalse(got)

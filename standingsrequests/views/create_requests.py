@@ -157,8 +157,8 @@ def _create_character_row(
         "pendingRevocation": has_pending_revocation,
         "requestActioned": has_actioned_request,
         "inOrganisation": app_config.is_character_a_member(character),
-        "hasRequiredScopes": eve_character.has_required_scopes_for_request(
-            character, user=user, quick_check=True
+        "hasRequiredScopes": eve_character.user_has_scopes_for_requesting_standing(
+            user=user, character=character, quick_check=True
         ),
         "hasStanding": has_standing,
     }

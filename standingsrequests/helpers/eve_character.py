@@ -1,10 +1,7 @@
-from typing import Optional
-
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from esi.models import Token
 
-from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.evelinks import eveimageserver
 from allianceauth.eveonline.models import EveCharacter
 
@@ -51,25 +48,23 @@ class EveCharacterHelper:
         return eveimageserver.character_portrait_url(self.character_id, size)
 
 
-def has_required_scopes_for_request(
-    character: EveCharacter, user: Optional[User] = None, quick_check: bool = False
+def user_has_scopes_for_requesting_standing(
+    user: User, character: EveCharacter, quick_check: bool = False
 ) -> bool:
-    """Report whether character has the required scopes
-    for issuing a standings request.
+    """Report whether a user has the required scopes
+    for requesting standing for a character.
 
     Params:
     - user: provide User object to shorten processing time
     - quick_check: if True will not check if tokens are valid to save time
     """
-    if not user:
-        try:
-            ownership = CharacterOwnership.objects.select_related(
-                "user", "user__profile__state"
-            ).get(character__character_id=character.character_id)
-        except CharacterOwnership.DoesNotExist:
-            return False
+    try:
+        owner = character.character_ownership.user
+    except ObjectDoesNotExist:
+        return False
 
-        user = ownership.user
+    if owner != user:
+        return False
 
     try:
         state_name = user.profile.state.name

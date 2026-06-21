@@ -145,8 +145,8 @@ class OrganizationInfo:
             )
             alliance_id = character.alliance_id
             alliance_name = character.alliance_name if character.alliance_name else ""
-            has_scopes = eve_character.has_required_scopes_for_request(
-                character=character, user=req.user, quick_check=quick_check
+            has_scopes = eve_character.user_has_scopes_for_requesting_standing(
+                user=req.user, character=character, quick_check=quick_check
             )
             return cls(
                 contact_name,

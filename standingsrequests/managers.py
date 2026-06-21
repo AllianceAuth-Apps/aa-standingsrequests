@@ -466,8 +466,8 @@ class StandingRequestManager(AbstractStandingsRequestManager):
             logger.warning("%s: Character already has a pending request", character)
             return CreateCharacterRequestResult.CHARACTER_HAS_REQUEST
 
-        if not eve_character.has_required_scopes_for_request(
-            character=character, user=user
+        if not eve_character.user_has_scopes_for_requesting_standing(
+            user=user, character=character
         ):
             logger.warning("%s: Character does not have the required scopes", character)
             return CreateCharacterRequestResult.CHARACTER_IS_MISSING_SCOPES

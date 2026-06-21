@@ -81,8 +81,8 @@ class EveCorporationHelper:
         return sum(
             (
                 1
-                if eve_character.has_required_scopes_for_request(
-                    character=character, user=user, quick_check=quick_check
+                if eve_character.user_has_scopes_for_requesting_standing(
+                    user=user, character=character, quick_check=quick_check
                 )
                 else 0
             )
