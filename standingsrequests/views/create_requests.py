@@ -20,6 +20,7 @@ from standingsrequests.app_settings import SR_CORPORATIONS_ENABLED
 from standingsrequests.constants import CreateCharacterRequestResult
 from standingsrequests.core import app_config
 from standingsrequests.decorators import token_required_by_state
+from standingsrequests.helpers import eve_character
 from standingsrequests.helpers.eve_corporation import EveCorporationHelper
 from standingsrequests.models import ContactSet, StandingRequest, StandingRevocation
 from standingsrequests.tasks import update_all, update_associations_api
@@ -156,7 +157,7 @@ def _create_character_row(
         "pendingRevocation": has_pending_revocation,
         "requestActioned": has_actioned_request,
         "inOrganisation": app_config.is_character_a_member(character),
-        "hasRequiredScopes": StandingRequest.has_required_scopes_for_request(
+        "hasRequiredScopes": eve_character.has_required_scopes_for_request(
             character, user=user, quick_check=True
         ),
         "hasStanding": has_standing,

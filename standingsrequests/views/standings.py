@@ -16,6 +16,7 @@ from standingsrequests import __title__
 from standingsrequests.app_settings import SR_PAGE_CACHE_SECONDS
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
+from standingsrequests.helpers import eve_character
 from standingsrequests.helpers.writers import UnicodeWriter
 from standingsrequests.models import Contact, ContactSet, StandingRequest
 
@@ -223,7 +224,7 @@ def download_pilot_standings(request):
             char.corporation_ticker if char else "",
             char.alliance_id if char else "",
             char.alliance_name if char else "",
-            StandingRequest.has_required_scopes_for_request(char),
+            eve_character.has_required_scopes_for_request(char),
             state,
             main_character_name,
             main.corporation_ticker if main else "",

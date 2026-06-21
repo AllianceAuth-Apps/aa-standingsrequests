@@ -8,10 +8,9 @@ from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
-from esi.models import Token
 from eveuniverse.models import EveEntity
 
-from allianceauth.authentication.models import CharacterOwnership, State
+from allianceauth.authentication.models import State
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import default_if_none
@@ -573,46 +572,6 @@ class StandingRequest(AbstractStandingsRequest):
 
         logger.debug("%s: Removing standing request by user %s", self, self.user)
         super().delete(*args, **kwargs)
-
-    @classmethod
-    def has_required_scopes_for_request(
-        cls,
-        character: EveCharacter,
-        user: Optional[User] = None,
-        quick_check: bool = False,
-    ) -> bool:
-        """Returns True if given character has the required scopes
-        for issuing a standings request else False.
-
-        Params:
-        - user: provide User object to shorten processing time
-        - quick: if True will not check if tokens are valid to save time
-        """
-        if not user:
-            try:
-                ownership = CharacterOwnership.objects.select_related(
-                    "user", "user__profile__state"
-                ).get(character__character_id=character.character_id)
-            except CharacterOwnership.DoesNotExist:
-                return False
-
-            user = ownership.user
-
-        try:
-            state_name = user.profile.state.name
-        except ObjectDoesNotExist:
-            return False
-
-        scopes_string = " ".join(app_config.required_scopes_for_state(state_name))
-        token_qs = Token.objects.filter(
-            character_id=character.character_id
-        ).require_scopes(scopes_string)
-
-        if not quick_check:
-            token_qs = token_qs.require_valid()
-
-        result = token_qs.exists()
-        return result
 
 
 class StandingRevocation(AbstractStandingsRequest):

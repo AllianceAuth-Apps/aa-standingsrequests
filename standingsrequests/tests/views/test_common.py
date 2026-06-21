@@ -38,9 +38,7 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         qs = StandingRequest.objects.all()
 
         # when
-        with patch(
-            MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
-        ) as m:
+        with patch(MODULE_PATH + ".eve_character.has_required_scopes_for_request") as m:
             m.return_value = True
             got = _common.compose_standing_requests_data(qs)
 
@@ -76,9 +74,7 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         qs = StandingRevocation.objects.all()
 
         # when
-        with patch(
-            MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
-        ) as m:
+        with patch(MODULE_PATH + ".eve_character.has_required_scopes_for_request") as m:
             m.return_value = True
             got = _common.compose_standing_requests_data(qs)
 
@@ -116,7 +112,7 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         # when
         with (
             patch(
-                MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
+                MODULE_PATH + ".eve_character.has_required_scopes_for_request"
             ) as has_required_scopes_for_request,
             patch(
                 MODULE_PATH + ".EveCorporationHelper.get_many_by_id"
@@ -168,7 +164,7 @@ class TestComposeStandingRequestsData(NoSocketsTestCase):
         # when
         with (
             patch(
-                MODULE_PATH + ".StandingRequest.has_required_scopes_for_request"
+                MODULE_PATH + ".eve_character.has_required_scopes_for_request"
             ) as has_required_scopes_for_request,
             patch(
                 MODULE_PATH + ".EveCorporationHelper.get_many_by_id"

@@ -1,7 +1,18 @@
-from app_utils.testing import NoSocketsTestCase
+from unittest.mock import patch
 
-from standingsrequests.helpers.eve_character import EveCharacterHelper
-from standingsrequests.tests.factories import CharacterAffiliationFactory
+from app_utils.testdata_factories import EveCharacterFactory
+from app_utils.testing import NoSocketsTestCase, add_character_to_user
+
+from standingsrequests.helpers.eve_character import (
+    EveCharacterHelper,
+    has_required_scopes_for_request,
+)
+from standingsrequests.tests.factories import (
+    CharacterAffiliationFactory,
+    UserMainRequestorFactory,
+)
+
+MODULE_PATH = "standingsrequests.helpers.eve_character"
 
 
 class TestEveCharacterHelper(NoSocketsTestCase):
@@ -41,3 +52,49 @@ class TestEveCharacterHelper(NoSocketsTestCase):
 
         # then
         self.assertEqual(character.character_id, 1001)
+
+
+@patch(MODULE_PATH + ".app_config.required_scopes_for_state")
+class TestStandingRequest_HasRequiredScopesForRequest(NoSocketsTestCase):
+    def test_should_confirm_when_user_has_character_token_with_required_scopes(
+        self, mock_required_scopes_for_state
+    ):
+        scope_name = "abc"
+        mock_required_scopes_for_state.return_value = [scope_name]
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
+        add_character_to_user(user, character, scopes=[scope_name])
+
+        # when
+        got = has_required_scopes_for_request(character, quick_check=True)
+
+        # then
+        self.assertTrue(got)
+
+    def test_should_deny_when_user_has_character_token_but_with_wrong_scopes(
+        self, mock_required_scopes_for_state
+    ):
+        scope_name = "abc"
+        mock_required_scopes_for_state.return_value = [scope_name]
+        user = UserMainRequestorFactory()
+        character = EveCharacterFactory()
+        add_character_to_user(user, character, scopes=["other_scope"])
+
+        # when
+        got = has_required_scopes_for_request(character, quick_check=True)
+
+        # then
+        self.assertFalse(got)
+
+    def test_should_deny_when_character_has_no_owner(
+        self, mock_required_scopes_for_state
+    ):
+        # given
+        mock_required_scopes_for_state.return_value = ["abc"]
+        character = EveCharacterFactory()
+
+        # when
+        got = has_required_scopes_for_request(character)
+
+        # then
+        self.assertFalse(got)

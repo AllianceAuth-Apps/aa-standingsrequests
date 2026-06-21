@@ -11,6 +11,7 @@ from standingsrequests import __title__
 from standingsrequests.constants import DATETIME_FORMAT_HTML
 from standingsrequests.core import app_config
 from standingsrequests.core.contact_types import ContactTypeId
+from standingsrequests.helpers import eve_character
 from standingsrequests.helpers.eve_character import EveCharacterHelper
 from standingsrequests.helpers.eve_corporation import EveCorporationHelper
 from standingsrequests.models import (
@@ -144,7 +145,7 @@ class OrganizationInfo:
             )
             alliance_id = character.alliance_id
             alliance_name = character.alliance_name if character.alliance_name else ""
-            has_scopes = StandingRequest.has_required_scopes_for_request(
+            has_scopes = eve_character.has_required_scopes_for_request(
                 character=character, user=req.user, quick_check=quick_check
             )
             return cls(

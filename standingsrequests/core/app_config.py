@@ -1,6 +1,6 @@
 """API for current configuration from settings."""
 
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 from eveuniverse.models import EveEntity
 
@@ -69,8 +69,11 @@ def alliance_ids() -> Set[int]:
     return result
 
 
-def required_scopes_for_state(state_name: str) -> list:
-    """Return list of required scopes for a state given by state_name."""
+def required_scopes_for_state(state_name: str) -> List[str]:
+    """Return list of required scopes for a state given by state_name.
+
+    Returns empty when no scopes are defined for the given state.
+    """
     state_name = "" if not state_name else state_name
     return SR_REQUIRED_SCOPES[state_name] if state_name in SR_REQUIRED_SCOPES else []
 

@@ -13,6 +13,7 @@ from app_utils.logging import LoggerAddTag
 
 from standingsrequests import __title__
 from standingsrequests.constants import DEFAULT_IMAGE_SIZE
+from standingsrequests.helpers import eve_character
 from standingsrequests.providers import esi
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -71,8 +72,6 @@ class EveCorporationHelper:
         - user: user owning the characters
         - quick: if True will not check if tokens are valid to save time
         """
-        from standingsrequests.models import StandingRequest
-
         corporation_members = (
             EveCharacter.objects.filter(character_ownership__user=user)
             .select_related("character_ownership__user__profile__state")
@@ -82,7 +81,7 @@ class EveCorporationHelper:
         return sum(
             (
                 1
-                if StandingRequest.has_required_scopes_for_request(
+                if eve_character.has_required_scopes_for_request(
                     character=character, user=user, quick_check=quick_check
                 )
                 else 0
