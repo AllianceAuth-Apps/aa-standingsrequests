@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
-## [3.0.0b1] - 2026-06-21
+## [3.0.0] - 2026-06-26
 
 ### Update notes
 
@@ -33,6 +33,25 @@ CELERYBEAT_SCHEDULE["standings_requests_purge_stale_data"] = {
     "schedule": 86400,  # 24 hours
 }
 ```
+
+### Added
+
+- Shows contacts on admin site
+
+### Changed
+
+- BREAKING CHANGE: Removed support for Python 3.8
+- BREAKING CHANGE: Removed support for Python 3.9
+- BREAKING CHANGE: Required scopes per state for requesting standing are now optional
+- Added support for AA5
+- Now uses local spec file for django-esi
+- Migrated to new eveuniverse version that uses the OpenAPI client
+- Removed logger tag
+- No longer shows contact sets on admin site
+- Modernized test suite
+- Refactoring
+
+## [3.0.0b1] - 2026-06-21
 
 ### Added
 
@@ -109,13 +128,13 @@ This release requires Alliance Auth 4.0 or greater.
 
 ## Added
 
-- The standings page is now visible to everyone who has basic access to the app. Except the related mains are onlny shown if the user has an additional permission. (#3)
+- The standings page is now visible to everyone who has basic access to the app. Except the related mains are only shown if the user has an additional permission. (#3)
 
 ## Changed
 
 - Big UI overhaul
 - Character and group standings have been consolidated into one page
-- Improved decription of permissions
+- Improved description of permissions
 - Technical: Replaced all angularjs legacy code with HTMX and JQuery datatables, since it is no longer supported by Google
 - Technical: Converted `trans` template tags to `translate`
 
@@ -127,7 +146,7 @@ This release requires Alliance Auth 4.0 or greater.
 
 ## Changed
 
-- Updated depenencies for compatibility with AA3
+- Updated dependencies for compatibility with AA3
 
 ## [1.1.0] - 2022-02-13
 
@@ -213,7 +232,7 @@ We also changed the timing for `standings_requests_update_associations_api`. Ple
 
 ## [0.7.0] - 2021-02-21
 
-> **Update notes:** Please apply updated settings for all peridoc tasks to your local settings file in order to avoid unnecessary task spamming.
+> **Update notes:** Please apply updated settings for all periodic tasks to your local settings file in order to avoid unnecessary task spamming.
 
 ### Added
 
