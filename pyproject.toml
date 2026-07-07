@@ -37,10 +37,7 @@ dependencies = [
 test = ["coverage", "factory_boy", "pook"]
 
 [project.urls]
-Homepage = "https://gitlab.com/ErikKalkoken/aa-standingsrequests"
-Source = "https://gitlab.com/ErikKalkoken/aa-standingsrequests"
-Changelog = "https://gitlab.com/ErikKalkoken/aa-standingsrequests/-/blob/master/CHANGELOG.md"
-Tracker = "https://gitlab.com/ErikKalkoken/aa-standingsrequests/-/issues"
+Homepage = "https://github.com/AllianceAuth-Apps/aa-standingsrequests"
 
 [tool.flit.module]
 name = "standingsrequests"
