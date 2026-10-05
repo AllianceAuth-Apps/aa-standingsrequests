@@ -5,7 +5,6 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from esi.decorators import token_required
 from esi.models import Token
@@ -411,32 +410,28 @@ def view_auth_page(request: HttpRequest, token: Token):
     if not source_entity:
         messages.error(
             request,
-            format_html(
-                _(
-                    "The configured character %s does not belong "
-                    "to an alliance and can therefore not be used "
-                    "to setup alliance standings. "
-                    "Please configure a character that has an alliance."
-                )
-                % owner_character.character_name,
-            ),
+            _(
+                "The configured character %s does not belong "
+                "to an alliance and can therefore not be used "
+                "to setup alliance standings. "
+                "Please configure a character that has an alliance."
+            )
+            % owner_character.character_name,
         )
 
     elif token.character_id == owner_character.character_id:
         update_all.delay(user_pk=request.user.pk)
         messages.success(
             request,
-            format_html(
-                _(
-                    "Token for character %(user_character)s has been setup "
-                    "successfully and the app has started pulling standings "
-                    "from %(standings_character)s."
-                )
-                % {
-                    "user_character": owner_character.character_name,
-                    "standings_character": source_entity.name,
-                },
-            ),
+            _(
+                "Token for character %(user_character)s has been setup "
+                "successfully and the app has started pulling standings "
+                "from %(standings_character)s."
+            )
+            % {
+                "user_character": owner_character.character_name,
+                "standings_character": source_entity.name,
+            },
         )
 
     else:
