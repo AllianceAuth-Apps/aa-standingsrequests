@@ -29,12 +29,12 @@ classifiers = [
 ]
 dependencies = [
     "allianceauth>=4,<6",
-    "django-esi>=8,<10",
-    "allianceauth-app-utils>=1.32",
-    "django-eveuniverse>=2",
+    "django-esi>=8,<11",
+    "allianceauth-app-utils>=1.33",
+    "django-eveuniverse>=2.2",
 ]
 [project.optional-dependencies]
-test = ["coverage", "factory_boy", "pook"]
+test = ["coverage", "factory_boy", "pookx"]
 
 [project.urls]
 Homepage = "https://github.com/AllianceAuth-Apps/aa-standingsrequests"
